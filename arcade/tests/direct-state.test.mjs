@@ -114,3 +114,25 @@ test('only the current control channel proof triggers verification, and repeated
   assert.equal(checks,1);assert.equal(link.peerVerified,true);
  }finally{link.destroy();}
 });
+
+test('an unusable trickle candidate does not kill a working direct channel',async()=>{
+ const {link}=fixture('connected');
+ try{
+  link.up=true;link.pc.remoteDescription={type:'answer'};link.remoteCandidates=[];
+  link.peer={hostId:'pc',clientId:'phone',peerId:'pair'};link.negotiationId='n';
+  link.pc.addIceCandidate=async()=>{throw new DOMException('Candidate no longer exists','OperationError');};
+  await link.acceptSignal({...link.peer,negotiationId:'n',kind:'candidate',candidate:{candidate:'candidate:1 1 udp 1 pc.local 1234 typ host'}});
+  assert.equal(link.up,true);assert.equal(link.retryTimer,undefined);
+ }finally{link.destroy();}
+});
+
+test('a completed stale answer cannot consume candidates from a replacement peer',async()=>{
+ const link=new DirectLink({role:'host',signal:()=>{}});let finish;
+ const old={signalingState:'have-local-offer',close(){},setRemoteDescription:()=>new Promise(resolve=>finish=resolve)};
+ link.pc=old;link.peer={hostId:'pc',clientId:'phone',peerId:'pair'};link.negotiationId='n';link.remoteCandidates=[];link.ice=[];
+ try{
+  const accepting=link.acceptSignal({...link.peer,negotiationId:'n',kind:'answer',description:{type:'answer',sdp:'v=0\r\n'}});
+  link.reset();link.pc={close(){}};link.ice=[{candidate:'replacement'}];finish();await accepting;
+  assert.deepEqual(link.ice,[{candidate:'replacement'}]);
+ }finally{link.destroy();}
+});

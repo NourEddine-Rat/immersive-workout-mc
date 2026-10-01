@@ -70,7 +70,7 @@ test('motion uses direct unreliable UDP, recovers a dropped channel, and survive
   assert.equal(await phone.evaluate(()=>window.PhoneConnection?.status.direct),true);
   assert.equal(await pc.evaluate(()=>phoneGate.ready),true);
   assert.ok(await pc.evaluate(()=>receivedMotion.length)>count+80,'fresh motion must continue with the server stopped');
-  const allowed=new Set(['host-register','phone-join','heartbeat','rtc-signal','phone-release']);
+  const allowed=new Set(['host-register','phone-join','heartbeat','rtc-signal','phone-release','connection-log','connection-report']);
   for(const page of [pc,phone]){
     const messages=await page.evaluate(()=>sentToServer);
     assert.ok(messages.length>0);

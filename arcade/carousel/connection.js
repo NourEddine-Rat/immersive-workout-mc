@@ -1,6 +1,7 @@
 import {qrcode} from '../engine/lib/qrcode.js';
 import {hostBridge} from '../engine/host-bridge.js';
 import {ConnectionNotice} from '../engine/lib/connection-notice.js';
+import {connectionExplanation} from '../engine/lib/connection-explanation.js';
 
 if(new URLSearchParams(location.search).get('controller')!=='1'){
   const trigger=document.getElementById('phone-status'),frame=document.querySelector('.frame');
@@ -27,6 +28,8 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
     <footer class="pair-state" role="status" aria-live="polite"><span>Preparing your connection…</span><button class="pair-retry" type="button" hidden>Retry</button></footer>
     <details class="pair-local-help"><summary>Connection help</summary><p>Allow Local Network access in your browser and use the same Wi-Fi on both devices. If automatic discovery fails, enter this PC’s IPv4 address from its Wi-Fi settings.</p><form class="pair-local-form"><label for="pair-local-address">PC Wi-Fi address</label><div><input id="pair-local-address" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="192.168.1.20" aria-describedby="pair-local-feedback"><button type="submit">Connect directly</button></div><p id="pair-local-feedback" role="status"></p><button class="pair-local-reset" type="button" hidden>Use automatic discovery</button></form></details>`;
   document.body.append(dialog);
+  globalThis.ConnectionDiagnostics?.mount(dialog.querySelector('.pair-local-help'));
+  const diagnosticStage=document.createElement('p');diagnosticStage.setAttribute('aria-live','polite');dialog.querySelector('.pair-local-help').append(diagnosticStage);
   const $=selector=>dialog.querySelector(selector);
   $('#pair-local-address').value=hostBridge.localAddress;
   $('.pair-local-reset').hidden=!hostBridge.localAddress;
@@ -85,7 +88,8 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
     $('.pair-close').hidden=!ready;
     $('.pair-retry').hidden=!status.retry||ready;
     dialog.dataset.state=ready?'ready':'waiting';
-    const message=ready?'Phone connected over local Wi-Fi.':state.online&&!state.active?'Close your other game tab to continue here.':status.state==='reconnecting'?'Phone disconnected. Open Play on your phone.':!info&&issue?'Couldn’t prepare the QR code. Please retry.':status.state==='help'?'Local connection needs help. See Connection help below.':status.state==='connecting'?'Connecting to your phone…':'Waiting for your phone';
+    const message=ready?'Phone connected over local Wi-Fi.':state.online&&!state.active?'Close your other game tab to continue here.':status.state==='reconnecting'?'Phone disconnected. Open Play on your phone.':!info&&issue?'Couldn’t prepare the QR code. Please retry.':status.state==='help'?connectionExplanation(state):status.state==='connecting'?'Connecting to your phone…':'Waiting for your phone';
+    const detail=connectionExplanation(state);if(diagnosticStage.textContent!==detail)diagnosticStage.textContent=detail;
     const label=$('.pair-state span');if(label.textContent!==message)label.textContent=message;
     // Pairing may finish in the background, but never interrupt the gallery entrance.
     if(!presented()||failed())return;

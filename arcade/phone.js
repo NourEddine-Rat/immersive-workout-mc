@@ -21,7 +21,7 @@ const state = $('state'), hint = $('hint');
 const app=window.PhoneApp;
 const instanceId=uuid();
 let motionStatus='needed', motionBusy=false,motionRequestedAt=0, closed=false, reconnectTimer, authenticated=false, replaced=false, lastMessage=0;
-function motionChange(status,text){motionStatus=status;if(text)hint.textContent=text;window.dispatchEvent(new CustomEvent('phone-motion',{detail:{status,text:hint.textContent}}));if(authenticated)send({t:'phone-presence',motion:status});}
+function motionChange(status,text){globalThis.ConnectionDiagnostics?.record('motion-permission',{motion:status});motionStatus=status;if(text)hint.textContent=text;window.dispatchEvent(new CustomEvent('phone-motion',{detail:{status,text:hint.textContent}}));if(authenticated)send({t:'phone-presence',motion:status});}
 window.PhoneMotion={get status(){return motionStatus;},get running(){return running;},enable:()=>startMotion(),stop:()=>{document.getElementById('shield')?.remove();running=false;window.removeEventListener('devicemotion',onMotion);batch=[];lastTs=0;rateEst=0;wakeLock?.release().catch(()=>{});useVideo(false);state.textContent='Not started';$('start').textContent='Start sensing';motionChange('needed','Motion is off. Enable it again when you are ready to play.');},lock:()=>{if(running)shield();}};
 
 let ws = null, running = false, pocket = 'right', mode = 'idle';
@@ -33,6 +33,8 @@ const recent = [];               // for the little on-screen bars
 // ------------------------------------------------------------------- the link
 
 const signal=o=>{if(ws?.readyState===1){try{ws.send(JSON.stringify({...o,clientId:app.id}));return true;}catch{}}return false;};
+const diagnostic=globalThis.ConnectionDiagnostics;
+diagnostic?.bind('phone',signal);
 const direct=new DirectLink({role:'phone',signal,onMessage:receive,onState:status=>{
   batch=[];
   window.dispatchEvent(new CustomEvent('phone-link',{detail:{connected:status.direct}}));
@@ -43,7 +45,7 @@ const direct=new DirectLink({role:'phone',signal,onMessage:receive,onState:statu
     send({t:'hello',pocket,conv:'webkit',mirrored:MIRROR,screen:[screen.width,screen.height]});
   }
 }});
-window.PhoneConnection={get status(){return direct.snapshot();},retry:()=>direct.retry()};
+window.PhoneConnection={get status(){return direct.snapshot();},retry:()=>{connect();if(ws?.readyState===1){join();direct.retry();}},report:()=>diagnostic?.download()};
 function setPeer(m){
   if(m.hostId&&m.peerId)direct.setPeer({hostId:m.hostId,clientId:app.id,peerId:m.peerId});
 }
@@ -60,18 +62,21 @@ function receive(m){
 function connect(){
   if(closed||replaced||ws&&ws.readyState<2)return;
   clearTimeout(reconnectTimer);
+  diagnostic?.record('ws-opening');
   const socket=ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws?role=phone`);
-  socket.onopen=()=>{if(ws!==socket)return;lastMessage=Date.now();join();};
-  socket.onclose=()=>{
+  socket.onopen=()=>{if(ws!==socket)return;lastMessage=Date.now();diagnostic?.record('ws-open');join();diagnostic?.flush();};
+  socket.onclose=e=>{
     if(ws!==socket)return;
+    diagnostic?.record('ws-close',{code:e.code,clean:e.wasClean});
     // Existing data channels keep working during a signaling-server outage.
-    if(!direct.up){authenticated=false;window.dispatchEvent(new CustomEvent('phone-link',{detail:{connected:false}}));}
+    if(!direct.up){authenticated=false;direct.state('signaling','Reconnecting to the pairing server…');window.dispatchEvent(new CustomEvent('phone-link',{detail:{connected:false}}));}
     if(!closed&&!replaced)reconnectTimer=setTimeout(connect,1000);
   };
-  socket.onerror=()=>socket.close();
+  socket.onerror=()=>{diagnostic?.record('ws-error');socket.close();};
   socket.onmessage=e=>{
     if(ws!==socket)return;
     let m;try{m=JSON.parse(e.data);}catch{return;}lastMessage=Date.now();
+    if(diagnostic?.receive(m))return;
     if(m.t==='phone-paired'){
       authenticated=true;
       window.dispatchEvent(new CustomEvent('phone-host',{detail:m}));
@@ -96,7 +101,7 @@ window.addEventListener('phone-paired',()=>{replaced=false;connect();join();});
 setInterval(()=>{
   if(ws?.readyState===1){
     signal({t:'heartbeat'});
-    if(Date.now()-lastMessage>12000){ws.close();return;}
+    if(Date.now()-lastMessage>12000){diagnostic?.record('ws-timeout');ws.close();return;}
     if(!authenticated&&!replaced)join();
   }
   if(direct.up)send({t:'phone-presence',motion:motionStatus});

@@ -10,7 +10,7 @@ The hosted website loads from Heroku, but motion and gameplay messages do not tr
 4. Both peers confirm that check over the encrypted data channel. The carousel unlocks after this confirmation. Gameplay additionally waits for fresh motion samples; stopping motion does not reopen the carousel pairing modal.
 5. Motion is sent immediately, one sample per unordered packet with zero retransmissions. Late/lost packets are dropped. Buttons, profile, calibration, game state and activity use the separate reliable channel on the same direct connection.
 
-`iceServers` is empty: no STUN or TURN service is configured. There is no WebSocket fallback for motion or gameplay. The server accepts only screen registration, pairing/release, heartbeats, and validated WebRTC setup messages. It rejects gameplay payloads. Automatic diagnostic screenshot/log uploads are removed.
+`iceServers` is empty: no STUN or TURN service is configured. There is no WebSocket fallback for motion or gameplay. The server accepts only screen registration, pairing/release, heartbeats, and validated WebRTC setup messages. It rejects gameplay payloads. Bounded connection metadata is collected for troubleshooting; motion, profile data and screenshots are never uploaded. See [CONNECTION-DIAGNOSTICS.md](CONNECTION-DIAGNOSTICS.md).
 
 `engine/direct-link.js` owns the shared connection. `engine/lib/local-route.js` enforces route validation. `engine/host-bridge.js` distributes direct messages to the carousel, training, and game sensor engine. `phone.js` sends fresh motion through this connection. Each game page rebuilds its connection automatically when the PC navigates.
 

@@ -1,4 +1,5 @@
 import {ConnectionNotice} from '../engine/lib/connection-notice.js';
+import {connectionExplanation} from '../engine/lib/connection-explanation.js';
 
 (() => {
   const app=window.PhoneApp;
@@ -61,6 +62,7 @@ import {ConnectionNotice} from '../engine/lib/connection-notice.js';
   reconnect.setAttribute('aria-describedby','reconnectHelp');
   reconnect.innerHTML=`<header><span>LOCAL WI-FI</span><button type="button" class="reconnect-later" aria-label="Back to stats">Later</button></header><h2 id="reconnectTitle" tabindex="-1">Connecting to your PC</h2><p id="reconnectHelp">Keep both screens open on the same Wi-Fi. We’ll connect automatically.</p><details><summary>Connection help</summary><p>Allow Local Network access if asked. Avoid guest Wi-Fi or a VPN. If you opened a different PC, choose Change screen.</p></details><div class="reconnect-actions"><button type="button" id="reconnectRetry">Try again</button><button type="button" id="reconnectChange">Change screen</button></div>`;
   document.body.append(reconnect);
+  globalThis.ConnectionDiagnostics?.mount(reconnect.querySelector('details'));
   const text=(element,value)=>{if(element.textContent!==value)element.textContent=value;};
   function renderConnection(){
     if(preview){reconnect.close();return;}
@@ -68,8 +70,8 @@ import {ConnectionNotice} from '../engine/lib/connection-notice.js';
     text($('controlStatus'),connectionIssue?'SCREEN IN USE':!paired?'NOT CONNECTED':state.state==='connected'?'CONNECTED':state.state==='reconnecting'?'RECONNECTING':'CONNECTING');
     const visible=paired&&!connectionIssue&&!root.hidden&&!window.PhoneLive?.visible&&state.visible;
     if(!visible){if(reconnect.open)reconnect.close();return;}
-    text(reconnect.querySelector('h2'),state.state==='reconnecting'?'Reconnecting to your PC':state.state==='help'?'Finish connecting':'Connecting to your PC');
-    text(reconnect.querySelector('#reconnectHelp'),state.state==='help'?'Keep Play open here. On your PC, open Connection help to try connecting with its Wi-Fi address.':'Keep both screens open on the same Wi-Fi. We’ll connect automatically.');
+    text(reconnect.querySelector('h2'),state.state==='reconnecting'?'Reconnecting to your PC':state.state==='help'?'Local connection needs help':'Connecting to your PC');
+    text(reconnect.querySelector('#reconnectHelp'),connectionExplanation(window.PhoneConnection?.status));
     reconnect.querySelector('#reconnectRetry').hidden=!state.retry;
     if(!reconnect.open){reconnect.showModal();reconnect.querySelector('h2').focus({preventScroll:true});}
   }
@@ -163,8 +165,9 @@ import {ConnectionNotice} from '../engine/lib/connection-notice.js';
   async function pair(code){
     if(preview){window.ControllerDev.show('connected');return;}
     if(busy)return;if(!/^\d{6}$/.test(code)){message('Enter the six-digit code shown on your PC or TV.');return;}
+    globalThis.ConnectionDiagnostics?.record('pair-request');
     busy=true;const version=++pairVersion,abort=new AbortController(),timeout=setTimeout(()=>abort.abort(),8000);$('pairSubmit').disabled=true;message('Finding your game…');
-    try{const res=await fetch(`/pair?code=${encodeURIComponent(code)}`,{cache:'no-store',signal:abort.signal});if(version!==pairVersion)return;if(res.status===404)throw Error('Start InMotion with start.command on your PC, then scan its QR code.');const data=await res.json();if(res.status===409){ready(code);return;}if(!res.ok||!data.ok){if(res.status===400){resetPairing(data.error||'That code has expired.');return;}throw Error(data.error||'Could not connect to this game.');}ready(code);}
+    try{const res=await fetch(`/pair?code=${encodeURIComponent(code)}`,{cache:'no-store',signal:abort.signal});globalThis.ConnectionDiagnostics?.record('pair-result',{status:res.status});if(version!==pairVersion)return;if(res.status===404)throw Error('Start InMotion with start.command on your PC, then scan its QR code.');const data=await res.json();if(res.status===409){ready(code);return;}if(!res.ok||!data.ok){if(res.status===400){resetPairing(data.error||'That code has expired.');return;}throw Error(data.error||'Could not connect to this game.');}ready(code);}
     catch(e){if(version!==pairVersion)return;if(restoring&&e.name==='TypeError'){ready(code);return;}message(['TimeoutError','AbortError'].includes(e.name)?'Connection timed out. Check your connection. For local play, use the same Wi-Fi.':e.message||'Could not reach the game. Try again.');}
     finally{clearTimeout(timeout);busy=false;$('pairSubmit').disabled=false;}
   }

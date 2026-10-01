@@ -33,6 +33,7 @@ import threading
 import time
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import connection_diagnostics as diagnostics
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CERT_DIR = os.path.join(HERE, ".certs")
@@ -82,6 +83,10 @@ class Room:
         self.diagnostic_times = {}
         self.touched = time.monotonic()
         self.lock = threading.RLock()
+
+    @property
+    def connection_id(self):
+        return hashlib.sha256(self.token.encode()).hexdigest()[:10]
 
     def status(self, force=False):
         now = time.monotonic()
@@ -312,6 +317,12 @@ class WSMixin:
         self.send_header("Sec-WebSocket-Accept", accept)
         self.end_headers()
         conn = self.connection
+        socket_id = secrets.token_hex(6)
+        trace = lambda event, **data: diagnostics.record(event, session=room.connection_id if room else None, role=role, socket_id=socket_id, data=data)
+        send_context = lambda: _send_json(conn, {"t": "connection-context", "context": diagnostics.context(room.connection_id if room else None, socket_id)})
+        trace("ws-open")
+        send_context()
+        diagnostic_window, diagnostic_count = time.monotonic(), 0
         conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # Abandoned phone sockets cannot hold the controller slot forever.
         conn.settimeout(15 if role == "phone" else 30)
@@ -374,6 +385,18 @@ class WSMixin:
                 if not isinstance(message, dict):
                     continue
                 kind = message.get("t")
+                if kind in ("connection-log", "connection-report"):
+                    if time.monotonic() - diagnostic_window > 60:
+                        diagnostic_window, diagnostic_count = time.monotonic(), 0
+                    diagnostic_count += 1
+                    if diagnostic_count > 90:
+                        continue
+                    if kind == "connection-log":
+                        for entry in diagnostics.client_events(message.get("events")):
+                            diagnostics.record(entry["event"], session=room.connection_id if room else None, role=role, socket_id=socket_id, client=entry)
+                    elif room and (conn in room.phones or conn in room.hosts):
+                        _send_json(conn, {"t": "connection-report", "report": diagnostics.report(room.connection_id)})
+                    continue
                 if kind == "heartbeat":
                     _send_json(conn, {"t": "heartbeat"})
                     if room:
@@ -384,6 +407,7 @@ class WSMixin:
                     code = message.get("pairCode", "")
                     target = find_room(code=code) if isinstance(code, str) and re.fullmatch(r"[0-9]{6}", code) else None
                     if not target:
+                        trace("pair-rejected", reason="expired")
                         allowed = pairing_allowed(self.client_ip())
                         _send_json(conn, {"t": "pair-expired", "message": "This code has expired. Scan the new QR code on your PC." if allowed else "Too many attempts. Wait one minute, then scan the PC QR code."})
                         if not allowed:
@@ -410,6 +434,7 @@ class WSMixin:
                             if not isinstance(client_id, str) or not 1 <= len(client_id) <= 100 or not isinstance(instance, str) or not 1 <= len(instance) <= 100:
                                 continue
                             if room.owner and room.owner != client_id and (room.phones or time.monotonic() < room.owner_until):
+                                trace("pair-rejected", reason="busy")
                                 _send_json(conn, {"t": "host-busy", "clientId": client_id})
                                 continue
                             for old_conn in list(room.phones):
@@ -421,6 +446,8 @@ class WSMixin:
                             room.phone_instance = instance
                             room.owner = client_id
                             room.phones[conn] = client_id
+                            trace("pair-accepted", present=bool(room.active))
+                            send_context()
                             _send_json(conn, {"t": "phone-paired", "clientId": client_id, "hostId": room.active, "peerId": room.peer_id})
                             _activate_hosts(room)
                             continue
@@ -442,6 +469,8 @@ class WSMixin:
                                 continue
                             room.hosts[conn] = identity
                             room.active = identity
+                            trace("host-active")
+                            send_context()
                             _activate_hosts(room)
                             continue
                         if room.hosts.get(conn) != room.active or message.get("clientId") != room.owner:
@@ -453,6 +482,7 @@ class WSMixin:
                         continue
                     outgoing = rtc_message(message)
                     if not outgoing:
+                        trace("signal-rejected", reason="invalid-schema")
                         continue
                     if outgoing["kind"] == "diagnostic":
                         # Bounded connection metadata only. Never log codes, network
@@ -469,11 +499,14 @@ class WSMixin:
                         continue
                     if role == "phone" and outgoing["kind"] == "offer" or role == "console" and outgoing["kind"] == "answer":
                         continue
+                    if outgoing["kind"] in ("offer", "answer", "restart"):
+                        trace("signal-forwarded", kind=outgoing["kind"], present=bool(peers))
                     for peer in peers:
                         _send_json(peer, outgoing)
-        except (ConnectionError, OSError, struct.error):
-            pass
+        except (ConnectionError, OSError, struct.error) as error:
+            trace("ws-error", errorName=type(error).__name__)
         finally:
+            trace("ws-close")
             with ROOMS_LOCK:
                 CONNECTIONS.discard(conn)
             if room:
@@ -615,6 +648,11 @@ class Handler(WSMixin, SimpleHTTPRequestHandler):
             return self._json({"ok": True})
         if parsed.path == "/screen-check":
             return self._json({"ok": bool(self.screen_room())}, 200 if self.screen_room() else 409)
+        if parsed.path == "/connection-report":
+            room = self.screen_room()
+            if not room:
+                return self._json({"error": "Open your PC connection screen first."}, 403)
+            return self._json(diagnostics.report(room.connection_id))
         if parsed.path == "/where":
             room = self.screen_room(create=True)
             if not room:
@@ -676,7 +714,8 @@ class Handler(WSMixin, SimpleHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         if len(args) > 1 and str(args[1]).startswith(("4", "5")):
-            super().log_message(fmt, *args)
+            # Avoid logging pairing codes from query strings.
+            diagnostics.record("http-error", data={"status": int(args[1]), "stage": "pair" if urlparse(self.path).path == "/pair" else "http"})
 
 
 class Dual(ThreadingHTTPServer):
@@ -700,6 +739,7 @@ class Dual(ThreadingHTTPServer):
         exc = sys.exc_info()[1]
         if isinstance(exc, (ConnectionResetError, BrokenPipeError, TimeoutError,
                             BlockingIOError, ssl.SSLError)):
+            diagnostics.record("http-disconnected", data={"errorName": type(exc).__name__})
             return          # a phone walking out of range is not an error
         super().handle_error(request, client_address)
 

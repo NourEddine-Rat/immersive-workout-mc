@@ -1,6 +1,6 @@
 // Import in dependency order so a partial download cannot leave a half-working controller.
 const loader=document.getElementById('phoneBoot'),message=document.getElementById('phoneBootMessage'),retry=document.getElementById('phoneBootRetry');
-function failed(text){loader.dataset.state='error';message.textContent=text;retry.hidden=false;}
+function failed(text){loader.dataset.state='error';message.textContent=text;retry.hidden=false;if(!loader.querySelector('.connection-diagnostics'))globalThis.ConnectionDiagnostics?.mount(loader);}
 retry.onclick=()=>location.reload();
 const timeout=setTimeout(()=>failed('Loading is taking longer than expected. Check your connection, then retry.'),25000);
 try{
@@ -15,6 +15,7 @@ try{
   document.documentElement.classList.remove('phone-booting');loader.remove();
   dispatchEvent(new Event('phone-app-ready'));
 }catch(error){
+  globalThis.ConnectionDiagnostics?.error('js-error',error,{stage:'phone-boot'});
   clearTimeout(timeout);console.error('Phone startup:',error);
   failed('The controller could not finish loading. Check your connection and tap Retry.');
 }

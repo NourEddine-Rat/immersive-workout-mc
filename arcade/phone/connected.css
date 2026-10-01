@@ -82,6 +82,8 @@
 .phone-reconnect details { margin:20px 0;font-size:12px;color:#ded8e8; }
 .phone-reconnect summary { width:fit-content;padding:5px 0;cursor:pointer; }
 .phone-reconnect details p { margin-top:8px;font-size:12px;line-height:1.6; }
+.phone-reconnect .connection-diagnostics { border-top:1px solid #ffffff30; margin-top:12px; padding-top:4px; }
+.phone-reconnect .connection-diagnostics button { min-height:44px; margin-top:10px; padding:10px 14px; border:1px solid #ffffff40; border-radius:12px; background:#ffffff15; color:#fff; }
 .reconnect-actions { display:flex;gap:10px; }
 .reconnect-actions button { flex:1;min-height:46px;padding:12px;border:1px solid #ffffff30;border-radius:15px;color:#f5f1fa;background:#ffffff0e; }
 .reconnect-actions #reconnectRetry { background:linear-gradient(135deg,#fff,#e3dcef);color:#30283e;border-color:#ffffffaa;box-shadow:inset 0 1px 0 #fff; }

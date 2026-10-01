@@ -15,7 +15,10 @@ let direct,lastSample=0,firstSample=0,motion='needed';
 const ADDRESS_KEY='inmotion.local-address.v1';
 let addressHint='';
 try{const saved=sessionStorage.getItem(ADDRESS_KEY);if(lanIPv4(saved))addressHint=saved;}catch{}
-const signal=m=>{if(socket?.readyState===1)socket.send(JSON.stringify(m));};
+const diagnostic=globalThis.ConnectionDiagnostics;
+const signal=m=>{if(socket?.readyState===1){try{socket.send(JSON.stringify(m));return true;}catch{}}return false;};
+if(!remote)diagnostic?.bind('host',signal);
+let lastSignal=0;
 const send=m=>active&&direct?.send({...m,hostId:id});
 function save(){try{journal=mergeSessions(readSessions(),journal);localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));}catch{send({t:'host-warning',message:'PC storage is full. Keep this phone connected to save the session.'});}}
 function syncHistory(){
@@ -78,14 +81,17 @@ direct=new DirectLink({role:'host',signal,addressHint,onMessage:receive,onState:
   connectionState();if(state.direct){publish();syncHistory();}
 }});
 async function connect(){
-  if(remote||stopped)return;
+  if(remote||stopped||socket?.readyState<2)return;
   try{await screenSession(true);}catch(error){if(!direct.up){direct.state('signaling',error.message);connectionState();}if(!stopped)retry=setTimeout(connect,2500);return;}
   if(stopped)return;
+  if(socket?.readyState<2)return;
+  diagnostic?.record('ws-opening');
   const ws=socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws?role=console`);
-  ws.onopen=()=>signal({t:'host-register',hostId:id});
+  ws.onopen=()=>{lastSignal=Date.now();diagnostic?.record('ws-open');signal({t:'host-register',hostId:id});diagnostic?.flush();};
   ws.onmessage=e=>{
     if(socket!==ws)return;
     let m;try{m=JSON.parse(e.data);}catch{return;}
+    lastSignal=Date.now();if(diagnostic?.receive(m))return;
     if(m.hostId&&m.hostId!==id)return;
     if(m.t==='host-active'){
       active=m.active;
@@ -95,12 +101,16 @@ async function connect(){
     if(!active)return;
     if(m.t==='peer-phone'){
       if(!m.clientId||!m.peerId){pairedClient=null;pairedUser=null;direct.close();return;}
+      const same=direct.peer?.peerId===m.peerId&&direct.peer?.hostId===id;
       pairedClient=m.clientId;direct.setPeer({hostId:id,clientId:m.clientId,peerId:m.peerId});
+      // A rejoined signaling socket may have lost an offer/answer. A working
+      // data channel survives the socket outage, unfinished negotiations restart.
+      if(same&&!direct.up&&performance.now()-direct.started>3000)direct.retry();
     }
     if(m.t==='rtc-signal')direct.signal(m);
   };
-  ws.onclose=()=>{if(socket!==ws)return;if(!direct.up)connectionState();if(!stopped)retry=setTimeout(connect,1000);};
-  ws.onerror=()=>ws.close();
+  ws.onclose=e=>{if(socket!==ws)return;diagnostic?.record('ws-close',{code:e.code,clean:e.wasClean});if(!direct.up){direct.state('signaling','Reconnecting to the pairing server…');connectionState();}if(!stopped)retry=setTimeout(connect,1000);};
+  ws.onerror=()=>{diagnostic?.record('ws-error');ws.close();};
 }
 export const hostBridge={
   connectionInfo:screenSession,
@@ -108,12 +118,12 @@ export const hostBridge={
     const status=direct.snapshot(),age=performance.now()-lastSample;
     return {active,online:socket?.readyState===1||status.direct,connected:status.direct,paired:!!pairedClient,motion,
       ready:active&&status.direct&&motion==='ready'&&lastSample>0&&age<1000&&lastSample-firstSample>=250,
-      sampleAge:age,direct:status.direct,route:status.route,rttMs:status.rttMs,localStatus:status.status,
+      sampleAge:age,direct:status.direct,route:status.route,rttMs:status.rttMs,localStatus:status.status,stage:status.stage,reason:status.reason,attempt:status.attempt,
       error:!status.direct&&['blocked','unsupported','signaling'].includes(status.status)?status.message:null,
       message:status.message};
   },
   send,
-  retryLocal(){direct.retry();},
+  retryLocal(){if(socket?.readyState!==1)connect();direct.retry();},
   get localAddress(){return direct.addressHint;},
   setLocalAddress(value){
     const address=String(value||'').trim();
@@ -138,5 +148,5 @@ export const hostBridge={
     if(pairedUser&&current.userId===pairedUser.id)send({t:'session-history',userId:pairedUser.id,rows:[current]});
   }
 };
-if(!remote){connect();setInterval(publish,1000);setInterval(connectionState,250);setInterval(()=>signal({t:'heartbeat'}),2000);addEventListener('pagehide',()=>{if(['play','running'].includes(snapshot?.()?.phase))hostBridge.update(snapshot());stopped=true;clearTimeout(retry);direct.close();socket?.close();});addEventListener('pageshow',e=>{if(e.persisted){stopped=false;connect();}});}
+if(!remote){connect();setInterval(publish,1000);setInterval(connectionState,250);setInterval(()=>{signal({t:'heartbeat'});if(socket?.readyState===1&&Date.now()-lastSignal>12000){diagnostic?.record('ws-timeout');socket.close();}},2000);addEventListener('online',()=>connect());addEventListener('pagehide',()=>{if(['play','running'].includes(snapshot?.()?.phase))hostBridge.update(snapshot());stopped=true;clearTimeout(retry);direct.close();socket?.close();});addEventListener('pageshow',e=>{if(e.persisted){stopped=false;connect();}});}
 addEventListener('calibration-saved',e=>{if(pairedUser)send({t:'phone-calibration',userId:pairedUser.id,calibration:e.detail});});
