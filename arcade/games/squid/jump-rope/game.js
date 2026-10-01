@@ -15,16 +15,16 @@ import { hostBridge } from '../../../engine/host-bridge.js';
 import * as THREE from 'three';
 import { GLTFLoader } from '../../../engine/three/GLTFLoader.js';
 import { MeshoptDecoder } from '../../../engine/three/libs/meshopt_decoder.module.js';
-import { PocketSource, mergeCfg } from '../../../engine/pocket.js';
-import { GENERIC } from '../../../engine/lib/detect.js';
+import { PocketSource, mergeCfg } from '../../../engine/motion-controller.js';
+import { GENERIC } from '../../../engine/lib/motion-detector.js';
 import * as Profile from '../../../engine/profile.js';
 import { Stillness, STILL, PACE, paceFor, metresRun } from '../common/motion.js';
 import { Calories, KCAL } from '../../../engine/calories.js';
 import { Crowd } from '../../../engine/body/bots.js';
 import { Hands } from '../../../engine/body/hands.js';
-import { FX, Gift } from '../common/fx.js';
+import { FX, Gift } from '../common/visual-effects.js';
 import { qrcode } from '../../../engine/lib/qrcode.js';
-import { devPanel } from '../../../engine/devpanel.js';
+import { devPanel } from '../../../engine/developer-panel.js';
 import { Arena } from './arena.js';
 import { Rope, ROPE, RULES, inDanger, groundAt } from './rules.js';
 import { Director, LANE } from './director.js';
@@ -48,7 +48,7 @@ const START = RULES.startZ, END = RULES.finishZ;
 const GAP0 = ROPE.gap[0], GAP1 = ROPE.gap[1];
 const LEAP_FROM = 1.6;        // a leap from closer to the edge than this clears the gap; from further back it falls short
 
-// the gifts on this bridge (the box and its shape from fx.js; what they do is this game's)
+// the gifts on this bridge (the box and its shape from visual-effects.js; what they do is this game's)
 const PERKS = {
   time:   { shape: 'circle',   title: '+10 SECONDS',     say: 'Ten more seconds on the clock.' },
   shield: { shape: 'triangle', title: 'A FRIEND\'S HAND', say: 'The next time the rope catches you, someone pulls you back up.' },
@@ -714,9 +714,9 @@ function frame(now) {
     boot && boot.step('loading the bridge…');
     await arena.load(loader);
     boot && boot.step('loading the players…');
-    await crowd.load('../../../engine/body/player.glb', loader);
+    await crowd.load('../../../engine/body/athlete-avatar.glb', loader);
     boot && boot.step('loading your hands…');
-    await hands.load('../../../engine/body/arms.glb', loader);
+    await hands.load('../../../engine/body/controller-arms.glb', loader);
   } catch (e) { boot && boot.fail('The game could not load its models: ' + (e.message || e)); throw e; }
   window.__gameUp = true;
   resetRound(false);
@@ -731,7 +731,7 @@ function frame(now) {
 })();
 
 // ---------------------------------------------------------------- dev panel
-// Every screen of this map, one click each, without a phone (engine/devpanel.js):
+// Every screen of this map, one click each, without a phone (engine/developer-panel.js):
 // the game's own functions put it in each moment, so the preview is the real UI.
 const devWait = ms => new Promise(r => setTimeout(r, ms));
 const devProfile = () => profile || { v: 1, created: new Date().toISOString(), measures: {}, cfg: {}, run: {}, pace: {}, still: {}, notes: [] };

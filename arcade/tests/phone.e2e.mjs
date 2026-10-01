@@ -29,6 +29,7 @@ test('PC QR, phone pairing, all game pages, remote actions, motion pause/resume,
     const phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
     for(const [name,page] of [['pc',pc],['phone',phone]]){
       page.on('pageerror',e=>errors.push(name+': '+e.message));
+      page.on('response',response=>{if(response.url().startsWith(s.base)&&response.status()>=400)errors.push(`${name}: ${response.status()} ${response.url()}`);});
       // Remote fonts are optional; don't make network availability part of a LAN test.
       await page.route('https://fonts.googleapis.com/**',route=>route.abort());
       await page.route('https://fonts.gstatic.com/**',route=>route.abort());

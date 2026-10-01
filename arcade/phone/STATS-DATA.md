@@ -13,7 +13,7 @@ The UI in details.js is a design surface. `preview=1` labels illustrative data; 
 | Red Light runtime | Clock, progress, distance to finish, elimination reason, prize pot | Save final snapshot; stop reaction times and freeze-success rates would require new timestamped events. |
 | Jump Rope runtime | Clock, progress, jumps, outcome, prize pot | Save final snapshot; timing accuracy would require explicit rope phase and event timestamps. |
 | engine/calories.js | kcal, active, jumps, squats, seconds, kg | Active energy and kg are runtime values, currently discarded by the summary recorder. Record baseline, cadence, jump and squat components for each session. |
-| engine/pocket.js poll() | events, ready, live, running, steady, cadenceHz, v, tilt, aG, wDps | Runtime on host. Record events and sampled aggregates; step count should count step events, not integrate cadence as if measured steps. |
+| engine/motion-controller.js poll() | events, ready, live, running, steady, cadenceHz, v, tilt, aG, wDps | Runtime on host. Record events and sampled aggregates; step count should count step events, not integrate cadence as if measured steps. |
 | engine/profile.js | walk/jog/sprint cadence, stillness, stop time, hop and squat calibration | arcade.profile.v1 on host. Sync selected profile metadata explicitly. |
 | phone.js | rateEst, rtt, sent, gravityMode, wake lock, browser mode | Phone-local runtime; can publish a throttled snapshot while visible. Do not start sensors simply to open stats. |
 | engine/lib/protocol.js | timestamp, acceleration XYZ, gravity XYZ, rotation XYZ; findGaps(), measuredHz(), ClockSync | Gap and rate calculations require samples. Capture missing/unsupported channels as null rather than zero. |

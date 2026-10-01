@@ -8,7 +8,7 @@
 // The first real recording rewrote this file. What it taught, in one line
 // each, is written above the detector it changed.
 
-import { len } from './vec.js';
+import { len } from './vector-math.js';
 import { tilt, rates, upAccel, settle } from './frame.js';
 
 export const G = 9.80665;

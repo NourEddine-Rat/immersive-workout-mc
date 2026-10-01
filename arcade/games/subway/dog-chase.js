@@ -25,7 +25,7 @@ export class DogChase {
 
   async load() {
     try {
-      const gltf = await loadGltfPatched('./models/dog/scene.gltf');
+      const gltf = await loadGltfPatched('./models/dog/chase-dog.gltf');
       const root = gltf.scene;
       root.traverse(o => { if (o.isMesh) { index16(o.geometry); const m = o.material; o.material = new THREE.MeshLambertMaterial({ map: m.map, color: 0xffffff }); if (m.map) m.map.colorSpace = THREE.SRGBColorSpace; } });
       const box = new THREE.Box3().setFromObject(root);

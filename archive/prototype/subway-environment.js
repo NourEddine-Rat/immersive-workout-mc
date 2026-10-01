@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { restyle, light } from './subway/theme.js';
 
 // Map assets: “Sub Way Surf Assets” by Giovanni Messina, CC-BY-4.0.
-// Attribution and original source: subway/models/assets_messina/license.txt.
+// Attribution and original source: subway/models/environment/license.txt.
 export function createSubwayEnvironment() {
     const scene = new THREE.Scene();
     light(scene, false, 'day');
@@ -17,8 +17,8 @@ export function createSubwayEnvironment() {
     let needsCapture = true;
 
     const loaded = (async () => {
-        const path = './subway/models/assets_messina/';
-        const response = await fetch(path + 'scene.gltf');
+        const path = './subway/models/environment/';
+        const response = await fetch(path + 'subway-environment.gltf');
         if (!response.ok) throw new Error('Subway map could not load: ' + response.status);
         const json = await response.json();
         // This asset predates the metallic/roughness material format.

@@ -16,7 +16,7 @@
 // after a few jumps the resting angle sat 17 degrees off the original still
 // baseline, so `down` has to keep re-settling whenever the leg is quiet.
 
-import { unit, cross, dot, len, reject, angle, horizontalBasis, pca2 } from './vec.js';
+import { unit, cross, dot, len, reject, angle, horizontalBasis, pca2 } from './vector-math.js';
 
 const DEG = 180 / Math.PI;
 

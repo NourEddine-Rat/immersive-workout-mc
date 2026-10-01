@@ -16,7 +16,7 @@ import { rowGapUnits } from './pacing.js';
 import { LAMP, restyle, onHour } from './theme.js';
 
 export { LANE_X, LANE_Z, GROUND_Y, TILE_PITCH, HIT };
-const MODEL = './models/assets_messina/';
+const MODEL = './models/environment/';
 
 // Obstacle kinds, and what answers them:
 //   train  a closed car: dodge (the game's job), or die
@@ -46,15 +46,15 @@ export const RAMP_LEN = 1.8;                        // metres of ramp before the
 // triangles: cheap enough for a TV.
 //   "LowPoly 3D Train" by Ajaya Tamang Moktan, CC-BY-4.0 — the long orange one
 const MOVERS = {
-  long: { url: './models/train_low/scene.gltf', height: 3.0 },
+  long: { url: './models/train/passenger-train.gltf', height: 3.0 },
 };
 // The coin, baked light by models/subway_surfers_coin/bake_lite.py: 80
 // triangles, already in game space, and a 128² cut of its atlas (15 KB).
 //   "Subway Surfers Coin" by nirvaraj, CC-BY-4.0
-const COIN = { url: './models/coin/coin.lite.gltf' };
+const COIN = { url: './models/coin/coin.gltf' };
 // The flame token — a calorie milestone, put on the track for the runner to
 // take (see game.js). Baked light the same way: models/subway_surfers-fire/bake_lite.py.
-const FIRE = { url: './models/fire/fire.lite.gltf' };
+const FIRE = { url: './models/fire/energy-token.gltf' };
 /** What each kind asks of the player. */
 export const ANSWERS = { block: ['jump'], bar: ['jump', 'roll'], high: ['roll'], train: [], ramp: ['ride'] };
 
@@ -235,7 +235,7 @@ export class World {
 
   async load(onProgress = null) {
     SHRINK_TO = this.lite ? 512 : 0;
-    const gltf = await loadGltfPatched(MODEL + 'scene.gltf', onProgress ? (d, t) => onProgress('the track', d, t) : null);
+    const gltf = await loadGltfPatched(MODEL + 'subway-environment.gltf', onProgress ? (d, t) => onProgress('the track', d, t) : null);
     const get = n => gltf.scene.getObjectByName(n);
     this.tpl = {
       tile: bake(get(PIECES.tile), true),

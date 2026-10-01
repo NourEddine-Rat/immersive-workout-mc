@@ -121,15 +121,15 @@
   "buffers": [
     {
       "byteLength": 126336,
-      "uri": "scene.bin"
+      "uri": "passenger-train.bin"
     }
   ],
   "images": [
     {
-      "uri": "textures/TT_checker_2048x2048_UV_GRID_001_baseColor.jpeg"
+      "uri": "textures/train-base-color.jpeg"
     },
     {
-      "uri": "textures/TT_checker_2048x2048_UV_GRID_001_metallicRoughness.png"
+      "uri": "textures/train-metallic-roughness.png"
     }
   ],
   "materials": [

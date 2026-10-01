@@ -2,6 +2,12 @@
 
 The connection now uses encrypted WebRTC data channels directly between the phone and PC. The hosted server provides files, pairing and signaling. It does not relay motion, controls, profiles, calibration or game history. No STUN/TURN service or WebSocket gameplay fallback is configured. Play requires a verified local route and fresh motion.
 
+## Competition filename cleanup
+
+Standardized 89 asset/module paths and moved 13 older root-level prototype files into `archive/prototype/`. Model buffers, textures, imports, icons, styles and generated carousel background paths were updated together. Public game routes and saved game identifiers remain stable. Third-party library filenames and attribution files are preserved.
+
+Verification: 21 unit/hosting tests, all 8 browser integration scenarios and the WebKit scenario pass. The all-games browser check now rejects missing asset responses. All 34 external glTF resource references resolve, all 69 application JavaScript files pass syntax checks, and the model data is unchanged apart from resource paths. The deployment smoke check fetched 218 runtime files successfully. A handled WebKit channel-close error found during reconnect testing is now prevented from surfacing as an unhandled page error; direct reconnect and no-cloud-fallback checks pass.
+
 ## Latest interface update
 
 Three targeted browser integration tests passed after the silent-game and pairing changes. They exercise all four games and assert zero audio-context creation, speech playback or unmuted media playback; motion-loss pause/resume remains working. They also confirm the carousel unlocks before motion is enabled, stays available when motion stops, and still waits for the finished entrance before showing the QR panel.

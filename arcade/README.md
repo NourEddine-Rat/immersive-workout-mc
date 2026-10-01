@@ -39,7 +39,7 @@ The TV dock explains TV-browser setup and HDMI, with an explicit beta compatibil
 - `serve.py`: static files, LAN/Heroku entry, isolated screen sessions, `/where`, `/pair`, `/ws` and `/health`.
 - `engine/direct-link.js`, `engine/lib/local-route.js`: direct channels, route verification, reconnect and no-cloud-fallback policy.
 - `engine/host-bridge.js`: active PC state, safe remote actions and activity synchronization.
-- `engine/pocket.js`: motion stream, clock sync and detectors used by games/training.
+- `engine/motion-controller.js`: motion stream, clock sync and detectors used by games/training.
 - `engine/profile.js`, `engine/activity-store.js`: calibration and dated session storage.
 - `training/`: shared movement calibration.
 - `games/subway/`, `games/squid/{red-light,jump-rope,track}/`: games.

@@ -72,4 +72,4 @@ curl https://YOUR-APP-NAME.herokuapp.com/health
 
 If pairing fails, check that both devices use the same app/domain, cookies are allowed on the PC, and only one web dyno is running. Use the currently displayed code. If motion is denied, allow Motion & Orientation in the phone browser settings and tap Enable again. If a PC or TV cannot render WebGL, use a current desktop browser with hardware acceleration or connect that PC to the TV by HDMI.
 
-The slug excludes local certificates, logs, node_modules, tests, and the unused design folders. The server blocks private file paths and directory listings. Automatic diagnostic uploads are removed; gameplay data stays between the browsers. No database credentials or application secrets are required.
+The slug excludes local certificates, logs, node_modules, tests, archived prototypes, and the unused design folders. Earlier repository snapshots are kept in `archive/prototype/`; the deployed application is in `arcade/`. The server blocks private file paths and directory listings. Automatic diagnostic uploads are removed; gameplay data stays between the browsers. No database credentials or application secrets are required.

@@ -4,9 +4,9 @@
 import * as THREE from 'three';
 import { World } from './world.js';
 import { Player, EYE } from './player.js';
-import { DogChase } from './dogchase.js';
-import { LookBack } from './lookback.js';
-import { langInit } from './lang.js';
+import { DogChase } from './dog-chase.js';
+import { LookBack } from './look-back.js';
+import { langInit } from './localization.js';
 langInit();
 
 const $ = id => document.getElementById(id);

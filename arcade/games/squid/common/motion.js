@@ -1,6 +1,6 @@
 // What the doll sees, and how far your legs carry you.
 //
-// Two readings of the phone's raw samples, next to the detectors pocket.js
+// Two readings of the phone's raw samples, next to the detectors motion-controller.js
 // already runs (jump, slide, footfalls, cadence):
 //
 // 1. STILLNESS — the suspicion meter. While the doll is looking, every
@@ -111,7 +111,7 @@ export function paceFor(cadenceHz, c = PACE) {
   return c.jogMs + (c.fastMs - c.jogMs) * Math.min(1, (cadenceHz - c.jogHz) / (c.fastHz - c.jogHz));
 }
 
-// The distance a runner's legs really cover (subway's runspeed.js, the same
+// The distance a runner's legs really cover (subway's running-speed.js, the same
 // rule): each footfall is a step, and a step grows with cadence.
 export const STEP = { slowM: 0.65, fastM: 1.3 };
 export function stepLength(cadenceHz, c = PACE, s = STEP) {

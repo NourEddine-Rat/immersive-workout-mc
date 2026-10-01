@@ -8,16 +8,16 @@ import * as THREE from 'three';
 import { World, TILE_PITCH, RAMP_LEN } from './world.js';
 import { Player } from './player.js';
 import { Assist } from './assist.js';
-import { DogChase } from './dogchase.js';
-import { LookBack } from './lookback.js';
+import { DogChase } from './dog-chase.js';
+import { LookBack } from './look-back.js';
 import { chooseLane } from './autopilot.js';
-import { RunState, RUN, metresRun } from './runspeed.js';
+import { RunState, RUN, metresRun } from './running-speed.js';
 import { Calories, KCAL, praise, nextMilestone } from './calories.js';
 import { light, setHour, updateHour, pinnedHour, currentName, DEFAULT_HOUR } from './theme.js';
-import { ar, langInit } from './lang.js';
+import { ar, langInit } from './localization.js';
 import { record as recordRun } from './stats.js';
-import { PocketSource, mergeCfg } from './pocket.js';
-import { GENERIC } from './lib/detect.js';
+import { PocketSource, mergeCfg } from './motion-controller.js';
+import { GENERIC } from './lib/motion-detector.js';
 import * as Profile from './profile.js';
 import { Profiling, STEPS } from './profile.js';
 import { qrcode } from './lib/qrcode.js';
@@ -33,7 +33,7 @@ const ui = {
   scan: $('scan'), scanDots: $('scanDots'), scanTitle: $('scanTitle'), scanSay: $('scanSay'), scanAr: $('scanAr'),
   scanFlash: $('scanFlash'), scanReps: $('scanReps'), scanHold: $('scanHold').firstElementChild, scanSkip: $('scanSkip'),
 };
-langInit();   // the game is English-only: the Arabic-only panels stay hidden (lang.js)
+langInit();   // the game is English-only: the Arabic-only panels stay hidden (localization.js)
 
 const LEVEL_M = 1000;
 const START_D = 2 * TILE_PITCH;   // a run starts two tiles in, so there is track behind you to look back at

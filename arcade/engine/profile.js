@@ -17,13 +17,13 @@
 //
 // Everything measured is kept, so a bad fit can be explained.
 
-import { GENERIC } from './lib/detect.js';
+import { GENERIC } from './lib/motion-detector.js';
 
 export const KEY = 'arcade.profile.v1';
 let memoryProfile;
 
 // The games' own defaults, for the bands a profile replaces (the same numbers
-// as subway/runspeed.js RUN and squid/common/motion.js PACE and STILL).
+// as subway/running-speed.js RUN and squid/common/motion.js PACE and STILL).
 const DEFAULT = { slowHz: 2.0, jogHz: 2.7, fastHz: 3.3, stillA0: 0.15, stillW0: 60 };
 const G = 9.80665;
 

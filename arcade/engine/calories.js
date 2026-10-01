@@ -23,7 +23,7 @@
 export const KCAL = {
   defaultKg: 70,
   stillMet: 1.3, slowMet: 4.0, jogMet: 8.0, fastMet: 11.5,
-  slowHz: 2.0, jogHz: 2.7, fastHz: 3.3,      // the same bands as runspeed.js
+  slowHz: 2.0, jogHz: 2.7, fastHz: 3.3,      // the same bands as running-speed.js
   jumpPerKg: 0.0033, squatPerKg: 0.0045,
   // the fire: milestones the run marks, in kcal — close together at first
   // (the first flame comes quickly, that is the point of it), then wider

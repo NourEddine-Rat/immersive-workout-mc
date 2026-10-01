@@ -124,7 +124,7 @@
         <main class="frame" aria-label="Interactive curved media carousel">
             <div id="stage" role="region" aria-roledescription="carousel" aria-label="Landscape gallery. Scroll, drag, or use left and right arrow keys." tabindex="0"></div>
 
-            <img class="game-logo" id="subway-logo" src="./subway-photo-logo-4301.png"
+            <img class="game-logo" id="subway-logo" src="./subway-logo.png"
                 width="2092" height="981" alt="Subway Surfers" aria-hidden="true" draggable="false" decoding="async">
 
             <div class="notice" id="notice" role="status">Loading gallery…</div>
@@ -241,7 +241,7 @@
                 if (GLTFLoader) {
                     const gltfLoader = new GLTFLoader();
                     gltfLoader.load(
-                        './free_gameready_fps_female_arms.glb',
+                        './controller-hands.glb',
                         gltf => {
                             handsModel = gltf.scene;
                             handsModel.traverse(object => {
@@ -1217,7 +1217,7 @@
                     }
 
                     try {
-                        const firstImageTexture = loader.load('./maxresdefault.jpg', () => {
+                        const firstImageTexture = loader.load('./subway-cover.jpg', () => {
                             if (mode === 'images') updateCards();
                         });
                         firstImageTexture.colorSpace = THREE.SRGBColorSpace;
@@ -1281,7 +1281,7 @@
 
                 source.onerror = () => {
                     if (hasCustomImages) return;
-                    const firstImageTexture = loader.load('./maxresdefault.jpg', () => {
+                    const firstImageTexture = loader.load('./subway-cover.jpg', () => {
                         if (mode === 'images') updateCards();
                     });
                     firstImageTexture.colorSpace = THREE.SRGBColorSpace;

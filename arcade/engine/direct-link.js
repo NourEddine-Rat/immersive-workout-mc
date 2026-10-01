@@ -103,7 +103,11 @@ export class DirectLink {
     this[channel.label]=channel;
     channel.onopen=()=>{if(this.pc===pc){this.lastHeard=performance.now();this.check();}};
     channel.onclose=()=>{if(this.pc===pc)this.unavailable('The direct Wi-Fi connection closed. '+HELP);};
-    channel.onerror=()=>{if(this.pc===pc)this.unavailable('The direct Wi-Fi connection was interrupted. '+HELP);};
+    channel.onerror=event=>{
+      // A channel can fail while a page is closing; recovery owns this error.
+      event.preventDefault();
+      if(this.pc===pc)this.unavailable('The direct Wi-Fi connection was interrupted. '+HELP);
+    };
     channel.onmessage=e=>{
       if(this.pc!==pc||typeof e.data!=='string'||e.data.length>65536)return;
       let m;try{m=JSON.parse(e.data);}catch{return;}

@@ -20,8 +20,8 @@ import { RoomEnvironment } from '../engine/three/RoomEnvironment.js';
 import { MeshoptDecoder } from '../engine/three/libs/meshopt_decoder.module.js';
 import { Hands } from '../engine/body/hands.js';
 import { Coach } from './coach.js';
-import { PocketSource, mergeCfg } from '../engine/pocket.js';
-import { GENERIC } from '../engine/lib/detect.js';
+import { PocketSource, mergeCfg } from '../engine/motion-controller.js';
+import { GENERIC } from '../engine/lib/motion-detector.js';
 import { qrcode } from '../engine/lib/qrcode.js';
 import * as Profile from '../engine/profile.js';
 
@@ -83,7 +83,7 @@ async function buildGym() {
   buildLights();
   const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   try {
-    const gltf = await loader.loadAsync('./gym/Gym.gltf');
+    const gltf = await loader.loadAsync('./gym/training-studio.gltf');
     gltf.scene.traverse(o => {
       if (!o.isMesh) return;
       o.castShadow = o.receiveShadow = true;
@@ -92,8 +92,8 @@ async function buildGym() {
     });
     scene.add(gltf.scene);
   } catch (e) { console.warn('gym model:', e); }
-  try { await hands.load('../engine/body/arms.glb', loader); } catch (e) { console.warn('arms:', e); }
-  try { await coach.load('../engine/body/coach.glb'); } catch (e) { console.warn('coach:', e); }
+  try { await hands.load('../engine/body/controller-arms.glb', loader); } catch (e) { console.warn('arms:', e); }
+  try { await coach.load('../engine/body/training-coach.glb'); } catch (e) { console.warn('coach:', e); }
 }
 
 // ---- you: eyes 1.62 m up, your own arms, on one spot of the open floor (everything is in place: the room is small)

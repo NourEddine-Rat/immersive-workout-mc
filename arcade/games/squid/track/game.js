@@ -11,15 +11,15 @@ import { hostBridge } from '../../../engine/host-bridge.js';
 import * as THREE from 'three';
 import { GLTFLoader } from '../../../engine/three/GLTFLoader.js';
 import { MeshoptDecoder } from '../../../engine/three/libs/meshopt_decoder.module.js';
-import { PocketSource, mergeCfg } from '../../../engine/pocket.js';
-import { GENERIC } from '../../../engine/lib/detect.js';
+import { PocketSource, mergeCfg } from '../../../engine/motion-controller.js';
+import { GENERIC } from '../../../engine/lib/motion-detector.js';
 import * as Profile from '../../../engine/profile.js';
 import { Stillness, STILL, PACE, metresRun } from '../common/motion.js';
 import { Calories, KCAL } from '../../../engine/calories.js';
 import { Crowd } from '../../../engine/body/bots.js';
 import { Hands } from '../../../engine/body/hands.js';
 import { qrcode } from '../../../engine/lib/qrcode.js';
-import { devPanel } from '../../../engine/devpanel.js';
+import { devPanel } from '../../../engine/developer-panel.js';
 import { Arena } from './arena.js';
 import { RACE, SPEED, lanePoint, raceS, raceMetres, hurdleSpots } from './rules.js';
 
@@ -577,9 +577,9 @@ function frame(now) {
     boot && boot.step('loading the stadium…');
     await arena.load(loader);
     boot && boot.step('loading the runners…');
-    await crowd.load('../../../engine/body/player.glb', loader);
+    await crowd.load('../../../engine/body/athlete-avatar.glb', loader);
     boot && boot.step('loading your hands…');
-    await hands.load('../../../engine/body/arms.glb', loader);
+    await hands.load('../../../engine/body/controller-arms.glb', loader);
   } catch (e) { boot && boot.fail('The game could not load its models: ' + (e.message || e)); throw e; }
   window.__gameUp = true;
   resetRace();
@@ -594,7 +594,7 @@ function frame(now) {
 })();
 
 // ---------------------------------------------------------------- dev panel
-// Every screen of this map, one click each, without a phone (engine/devpanel.js):
+// Every screen of this map, one click each, without a phone (engine/developer-panel.js):
 // the game's own functions put it in each moment, so the preview is the real UI.
 const devWait = ms => new Promise(r => setTimeout(r, ms));
 const devProfile = () => profile || { v: 1, created: new Date().toISOString(), measures: {}, cfg: {}, run: {}, pace: {}, still: {}, notes: [] };

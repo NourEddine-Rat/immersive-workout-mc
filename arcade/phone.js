@@ -13,7 +13,7 @@ import './phone/store.js';
 // The phone never uploads motion to the signaling server.
 
 import { packSample, BATCH } from './engine/lib/protocol.js';
-import { AR, langInit } from './engine/lang.js';
+import { AR, langInit } from './engine/localization.js';
 langInit();
 
 const $ = id => document.getElementById(id);

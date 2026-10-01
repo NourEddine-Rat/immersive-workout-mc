@@ -9,19 +9,19 @@ import * as THREE from 'three';
 import { World, TILE_PITCH, RAMP_LEN } from './world.js';
 import { Player } from './player.js';
 import { Assist } from './assist.js';
-import { DogChase } from './dogchase.js';
-import { LookBack } from './lookback.js';
+import { DogChase } from './dog-chase.js';
+import { LookBack } from './look-back.js';
 import { chooseLane } from './autopilot.js';
-import { RunState, RUN, metresRun } from './runspeed.js';
+import { RunState, RUN, metresRun } from './running-speed.js';
 import { Calories, KCAL, praise, nextMilestone } from '../../engine/calories.js';
 import { light, setHour, updateHour, pinnedHour, currentName, DEFAULT_HOUR } from './theme.js';
-import { ar, langInit } from '../../engine/lang.js';
+import { ar, langInit } from '../../engine/localization.js';
 import { record as recordRun } from './stats.js';
-import { PocketSource, mergeCfg } from '../../engine/pocket.js';
-import { GENERIC } from '../../engine/lib/detect.js';
+import { PocketSource, mergeCfg } from '../../engine/motion-controller.js';
+import { GENERIC } from '../../engine/lib/motion-detector.js';
 import * as Profile from '../../engine/profile.js';
 import { qrcode } from '../../engine/lib/qrcode.js';
-import { devPanel } from '../../engine/devpanel.js';
+import { devPanel } from '../../engine/developer-panel.js';
 
 const $ = id => document.getElementById(id);
 const ui = {
@@ -32,7 +32,7 @@ const ui = {
   dev: $('dev'), devLevel: $('devLevel'), devGo: $('devGo'),
   kcal: $('kcal'), kcalN: $('kcalN'), kgIn: $('kgIn'), perk: $('perk'), perkTitle: $('perkTitle'), perkCheer: $('perkCheer'), perkAr: $('perkAr'),
 };
-langInit();   // the game is English-only: the Arabic-only panels stay hidden (lang.js)
+langInit();   // the game is English-only: the Arabic-only panels stay hidden (localization.js)
 
 const LEVEL_M = 1000;
 const START_D = 2 * TILE_PITCH;   // a run starts two tiles in, so there is track behind you to look back at
@@ -665,7 +665,7 @@ function frame(now) {
 })();
 
 // ---------------------------------------------------------------- dev panel
-// Every screen of Subway, one click each, without a phone (engine/devpanel.js):
+// Every screen of Subway, one click each, without a phone (engine/developer-panel.js):
 // the game's own functions put it in each moment, so the preview is the real UI.
 const devCard = () => { hidePerk(); ui.hint.hidden = true; paused = false; };
 const devProfile = () => profile || { v: 1, created: new Date().toISOString(), measures: {}, cfg: {}, run: {}, pace: {}, still: {}, notes: [] };

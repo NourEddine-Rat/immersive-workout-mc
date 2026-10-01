@@ -10,8 +10,8 @@
 <meta name="theme-color" content="#e8342b">
 <!-- On the home screen the page runs without Safari's bars: nothing in the pocket can press them -->
 <link rel="manifest" href="./phone/manifest.webmanifest">
-<link rel="apple-touch-icon" href="./phone/icon-180.png">
-<link rel="icon" href="./phone/icon-192.png">
+<link rel="apple-touch-icon" href="./phone/app-icon-180.png">
+<link rel="icon" href="./phone/app-icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="./phone/phone.css">
@@ -206,7 +206,7 @@
 </div>
 
 <!-- the stay-awake fallback: a silent, invisible, looping video (for phones without a wake lock) -->
-<video id="awake" src="./phone/awake.mp4" muted playsinline loop preload="auto" aria-hidden="true"></video>
+<video id="awake" src="./phone/screen-awake.mp4" muted playsinline loop preload="auto" aria-hidden="true"></video>
 
 <script src="./phone/vendor/jsQR.js"></script>
 <script type="module" src="./phone/boot.js" onerror="document.getElementById('phoneBootMessage').textContent='Could not load the controller. Check your connection and reload.';document.getElementById('phoneBootRetry').hidden=false;document.getElementById('phoneBootRetry').onclick=function(){location.reload()}"></script>

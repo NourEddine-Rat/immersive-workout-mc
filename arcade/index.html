@@ -135,13 +135,13 @@
             <div id="stage" role="region" aria-roledescription="carousel" aria-label="Landscape gallery. Scroll, drag, or use left and right arrow keys." tabindex="0"></div>
 
             <!-- one logo per game; the one whose card is in front shows (data-game = the game's key) -->
-            <img class="game-logo" data-game="subway" src="./carousel/subway-photo-logo-4301.png"
+            <img class="game-logo" data-game="subway" src="./carousel/subway-logo.png"
                 width="2092" height="981" alt="Subway Surfers" aria-hidden="true" draggable="false" decoding="async">
-            <img class="game-logo" data-game="redlight" src="./carousel/green-red-light.png"
+            <img class="game-logo" data-game="redlight" src="./carousel/red-light-logo.png"
                 width="684" height="365" alt="Red Light, Green Light" aria-hidden="true" draggable="false" decoding="async">
-            <img class="game-logo" data-game="jumprope" src="./carousel/jump-rope.png"
+            <img class="game-logo" data-game="jumprope" src="./carousel/jump-rope-logo.png"
                 width="684" height="365" alt="Jump Rope" aria-hidden="true" draggable="false" decoding="async">
-            <img class="game-logo square" data-game="track" src="./carousel/olampics-logo.png"
+            <img class="game-logo square" data-game="track" src="./carousel/track-and-field-logo.png"
                 width="500" height="500" alt="Olympics" aria-hidden="true" draggable="false" decoding="async">
 
             <aside class="phone-status" id="phone-status" data-state="offline" aria-label="Phone connection">
@@ -363,7 +363,7 @@
                 if (GLTFLoader && !remoteView) {
                     const gltfLoader = new GLTFLoader();
                     gltfLoader.load(
-                        './carousel/free_gameready_fps_female_arms.glb',
+                        './carousel/controller-hands.glb',
                         gltf => {
                             handsModel = gltf.scene;
                             handsModel.traverse(object => {
@@ -565,7 +565,8 @@
                     ['track', 'Track & Field']
                 ]) {
                     const env = { ready: false };
-                    env.texture = loader.load(`./carousel/${key}-environment.webp`, () => {
+                    const assetName = {redlight: 'red-light', jumprope: 'jump-rope'}[key] || key;
+                    env.texture = loader.load(`./carousel/${assetName}-environment.webp`, () => {
                         env.ready = true;
                     }, undefined, () => tell(`${name} background could not load. Showing its cover image instead.`));
                     env.texture.colorSpace = THREE.SRGBColorSpace;
@@ -1251,9 +1252,9 @@
                 // The games, in carousel order: cover image on the card, in-game capture behind it.
                 function gameItems() {
                     return [
-                        ['Subway', 'subway', './carousel/maxresdefault.jpg', 1280 / 720, './games/subway/'],
-                        ['Red Light Green Light', 'redlight', './carousel/redlight-cover.jpeg', 1200 / 600, './games/squid/red-light/'],
-                        ['Jump Rope', 'jumprope', './carousel/jumprope-cover.jpeg', 1920 / 1080, './games/squid/jump-rope/'],
+                        ['Subway', 'subway', './carousel/subway-cover.jpg', 1280 / 720, './games/subway/'],
+                        ['Red Light Green Light', 'redlight', './carousel/red-light-cover.jpeg', 1200 / 600, './games/squid/red-light/'],
+                        ['Jump Rope', 'jumprope', './carousel/jump-rope-cover.jpeg', 1920 / 1080, './games/squid/jump-rope/'],
                         ['Track & Field', 'track', './carousel/track-cover.png', 1200 / 624, './games/squid/track/']
                     ].map(([label, key, cover, aspect, href]) => {
                         const texture = loader.load(cover, () => {

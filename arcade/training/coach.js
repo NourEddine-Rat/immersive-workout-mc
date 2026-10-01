@@ -1,6 +1,6 @@
 // The coach: a real person in the card's ring, doing the move you are asked for.
 //
-// A clean anatomical body (engine/body/coach.glb: C.J. Goldman's "Male base
+// A clean anatomical body (engine/body/training-coach.glb: C.J. Goldman's "Male base
 // mesh with muscle detail", CC-BY 4.0, given the games' Mixamo skeleton — arms
 // refitted to its own shoulders and elbows) driven by the games' own motion
 // code (engine/body/bots.js), on the spot, three-quarter on. Just the body, a

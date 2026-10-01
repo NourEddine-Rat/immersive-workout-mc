@@ -91,12 +91,12 @@
   "buffers": [
     {
       "byteLength": 30000,
-      "uri": "scene.bin"
+      "uri": "chase-dog.bin"
     }
   ],
   "images": [
     {
-      "uri": "textures/enemies.001_baseColor.png"
+      "uri": "textures/dog-base-color.png"
     }
   ],
   "materials": [

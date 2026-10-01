@@ -11,7 +11,7 @@ export async function createBodyView(container) {
   camera.position.set(0,1.1,4.7);camera.lookAt(0,1,0);
   scene.add(new THREE.HemisphereLight(0xc9ffff,0x142129,2.4));
   for (const [color,x,y,z,intensity] of [[0xbdfd99,-2,3,2,5],[0x81f6ff,2,1,1,6],[0x538ac8,0,2,-2,5]]) {const l=new THREE.DirectionalLight(color,intensity);l.position.set(x,y,z);scene.add(l);}
-  const gltf=await new GLTFLoader().loadAsync(new URL('../engine/body/coach.glb', import.meta.url).href);
+  const gltf=await new GLTFLoader().loadAsync(new URL('../engine/body/training-coach.glb', import.meta.url).href);
   const body=gltf.scene;
   body.traverse(n=>{if(n.isMesh){n.material=new THREE.MeshStandardMaterial({color:0xa6d9ce,metalness:.58,roughness:.32});n.frustumCulled=false;}});
   const rig = new Rig(body, n => n.replace(/^mixamorig:?/, '').replace(/_\d+$/, ''));

@@ -83,9 +83,9 @@
 
   .hud {position: fixed; pointer-events: none; font-family: "Press Start 2P", "Menlo", ui-monospace, monospace; font-family: var(--px); text-shadow: 0 2px 0 #3a1d00, 0 0 12px rgba(0,0,0,0.5); text-shadow: var(--shadow);}
   #topLeft {top: 24px; left: 26px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; gap: 10px; font-size: 20px; color: #ffd35b; color: var(--hud2);}
-  /* the counter wears the coin itself — models/subway_surfers_coin/coin.lite.icon.png,
+  /* the counter wears the coin itself — models/subway_surfers_coin/coin-icon.png,
      the face cut out of the very texture the 3D coin is painted with */
-  #topLeft .coin {width: 24px; height: 24px; background: url("./models/coin/coin.lite.icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 2px 3px rgba(0,0,0,0.65)); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.65));}
+  #topLeft .coin {width: 24px; height: 24px; background: url("./models/coin/coin-icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 2px 3px rgba(0,0,0,0.65)); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.65));}
   #topCenter {top: 26px; left: 50%; -webkit-transform: translateX(-50%); transform: translateX(-50%); width: min(56vw, 900px); text-align: center;}
   #level {font-size: 20px; color: #f7a52a; color: var(--hud); letter-spacing: 0.08em;}
   .progress {display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; margin-top: 12px; font-size: 11px; color: #ddd; display: grid; grid-template-columns: auto 1fr auto; gap: 10px;}
@@ -96,7 +96,7 @@
   /* the phone card sets the width; the numbers and the profile line hang off its two edges */
   #stats {width: 100%; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end; gap: 10px; padding: 0 4px; box-sizing: border-box;}
   #dist {font-size: 18px; color: #ffd35b; color: var(--hud2);}
-  /* the link card: a word and a line, nothing to read mid-run (pocket.js draws it) */
+  /* the link card: a word and a line, nothing to read mid-run (motion-controller.js draws it) */
   /* the phone link: dark frosted glass, the same recipe as the carousel's top-right cards, a shade darker */
   #pose {width: 152px; height: 62px; border: 1px solid rgba(255,255,255,0.30); border-radius: 12px; background: -webkit-linear-gradient(-55deg, rgba(40,60,68,0.52), rgba(8,18,24,0.46)); background: linear-gradient(145deg, rgba(40,60,68,0.52), rgba(8,18,24,0.46)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 8px 24px rgba(7,24,31,0.35), inset 0 0 24px rgba(70,190,210,0.07); -webkit-backdrop-filter: blur(9px) saturate(0.8); backdrop-filter: blur(9px) saturate(0.8);}
   #who {width: 100%; font: 10px ui-monospace, Menlo, monospace; color: #8b97a8; text-shadow: none; display: -webkit-box; display: -webkit-flex; display: flex; gap: 6px; -webkit-box-align: center; -webkit-align-items: center; align-items: center; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; pointer-events: auto;}
@@ -156,13 +156,13 @@
   #bootBar {height: 100%; width: 0; background: -webkit-linear-gradient(left, #ff7a1a, #ffd35b); background: linear-gradient(90deg, #ff7a1a, #ffd35b); -webkit-transition: width .2s; transition: width .2s;}
   #bootText {font: 13px ui-monospace, Menlo, monospace; color: #c3d3dd; min-height: 1.4em;}
   /* ---- calories and the fire ---- */
-  /* The counter and the banner wear the token's own face — models/subway_surfers-fire/fire.lite.icon.png,
+  /* The counter and the banner wear the token's own face — models/subway_surfers-fire/energy-token-icon.png,
      cut out by bake_lite.py from the very texture the 3D token is painted with. */
   #kcal {display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; gap: 7px; font-size: 14px; color: #ffb066; -webkit-transform-origin: right center; transform-origin: right center;}
   #kcal.bump {-webkit-animation: bump .7s cubic-bezier(.2,1.6,.4,1); animation: bump .7s cubic-bezier(.2,1.6,.4,1);}
   @keyframes bump { 0% {-webkit-transform: scale(1); transform: scale(1);} 30% {-webkit-transform: scale(1.5); transform: scale(1.5); color: #fff; text-shadow: 0 0 18px #ff8a1f;} 100% {-webkit-transform: scale(1); transform: scale(1);} }
   @-webkit-keyframes bump { 0% {-webkit-transform: scale(1);} 30% {-webkit-transform: scale(1.5); color: #fff; text-shadow: 0 0 18px #ff8a1f;} 100% {-webkit-transform: scale(1);} }
-  .flame {display: inline-block; width: 17px; height: 28px; background: url("./models/fire/fire.lite.icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 0 5px rgba(255,130,25,0.8)); filter: drop-shadow(0 0 5px rgba(255,130,25,0.8));}
+  .flame {display: inline-block; width: 17px; height: 28px; background: url("./models/fire/energy-token-icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 0 5px rgba(255,130,25,0.8)); filter: drop-shadow(0 0 5px rgba(255,130,25,0.8));}
   /* the banner: a reward plate with the token hanging over its top edge */
   #perk {left: 50%; top: 39%; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); text-align: center; z-index: 4; opacity: 0; -webkit-perspective: 700px; perspective: 700px;}
   #perk[hidden] {display: none;}
@@ -180,7 +180,7 @@
   #perk .plate:before {content: ""; position: absolute; left: 50%; top: 46%; width: 135%; height: 130%; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); background: -webkit-radial-gradient(center, ellipse cover, rgba(28,10,2,0.5) 0%, rgba(28,10,2,0.28) 42%, rgba(28,10,2,0) 70%); background: radial-gradient(ellipse at center, rgba(28,10,2,0.5) 0%, rgba(28,10,2,0.28) 42%, rgba(28,10,2,0) 70%); pointer-events: none;}
   #perk .plate > * {position: relative;}
   #perk .crest {position: relative; width: 92px; height: 152px; margin: 0 auto 4px;}
-  #perkFire {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url("./models/fire/fire.lite.icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 8px 20px rgba(255,110,20,0.85)); filter: drop-shadow(0 8px 20px rgba(255,110,20,0.85));}
+  #perkFire {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url("./models/fire/energy-token-icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 8px 20px rgba(255,110,20,0.85)); filter: drop-shadow(0 8px 20px rgba(255,110,20,0.85));}
   #perk.in #perkFire {-webkit-animation: tokenIn .4s cubic-bezier(.2,1.4,.4,1) both, tokenFloat 1.6s ease-in-out .4s infinite alternate; animation: tokenIn .4s cubic-bezier(.2,1.4,.4,1) both, tokenFloat 1.6s ease-in-out .4s infinite alternate;}
   /* it lands the way it turns in the world: a flip onto its face */
   @keyframes tokenIn { 0% {-webkit-transform: rotateY(200deg) scale(.35); transform: rotateY(200deg) scale(.35);} 65% {-webkit-transform: rotateY(0deg) scale(1.14); transform: rotateY(0deg) scale(1.14);} 100% {-webkit-transform: rotateY(0deg) scale(1); transform: rotateY(0deg) scale(1);} }

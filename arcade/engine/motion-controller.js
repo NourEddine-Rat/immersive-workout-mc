@@ -6,7 +6,7 @@ import { hostBridge } from './host-bridge.js';
 // game's own. The detectors are the generic ones from the test rig, with a
 // player's profile laid over them once one exists.
 
-import { Detectors, GENERIC } from './lib/detect.js';
+import { Detectors, GENERIC } from './lib/motion-detector.js';
 import { baselineFrom, makeFrame } from './lib/frame.js';
 import { ClockSync, unpackSample } from './lib/protocol.js';
 

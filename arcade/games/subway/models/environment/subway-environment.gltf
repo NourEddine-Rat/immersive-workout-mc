@@ -2163,7 +2163,7 @@
   "buffers": [
     {
       "byteLength": 2795492,
-      "uri": "scene.bin"
+      "uri": "subway-environment.bin"
     }
   ],
   "extensionsRequired": [
@@ -2174,46 +2174,46 @@
   ],
   "images": [
     {
-      "uri": "textures/Material_6_diffuse.png"
+      "uri": "textures/environment-surface-06-base-color.png"
     },
     {
-      "uri": "textures/Material_6_specularGlossiness.png"
+      "uri": "textures/environment-surface-06-specular-glossiness.png"
     },
     {
-      "uri": "textures/Material_001_diffuse.png"
+      "uri": "textures/environment-surface-01-base-color.png"
     },
     {
-      "uri": "textures/Material_001_specularGlossiness.png"
+      "uri": "textures/environment-surface-01-specular-glossiness.png"
     },
     {
-      "uri": "textures/Material_5_diffuse.png"
+      "uri": "textures/environment-surface-05-base-color.png"
     },
     {
-      "uri": "textures/Material_5_specularGlossiness.png"
+      "uri": "textures/environment-surface-05-specular-glossiness.png"
     },
     {
-      "uri": "textures/Material_8_diffuse.png"
+      "uri": "textures/environment-surface-08-base-color.png"
     },
     {
-      "uri": "textures/Material_8_specularGlossiness.png"
+      "uri": "textures/environment-surface-08-specular-glossiness.png"
     },
     {
-      "uri": "textures/Material_3_diffuse.png"
+      "uri": "textures/environment-surface-03-base-color.png"
     },
     {
-      "uri": "textures/Material_3_specularGlossiness.png"
+      "uri": "textures/environment-surface-03-specular-glossiness.png"
     },
     {
-      "uri": "textures/Material_2_diffuse.png"
+      "uri": "textures/environment-surface-02-base-color.png"
     },
     {
-      "uri": "textures/Material_2_specularGlossiness.png"
+      "uri": "textures/environment-surface-02-specular-glossiness.png"
     },
     {
-      "uri": "textures/Material_7_diffuse.png"
+      "uri": "textures/environment-surface-07-base-color.png"
     },
     {
-      "uri": "textures/Material_7_specularGlossiness.png"
+      "uri": "textures/environment-surface-07-specular-glossiness.png"
     }
   ],
   "materials": [

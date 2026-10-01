@@ -3,11 +3,8 @@
   "version": "2.0",
   "generator": "bake_lite.py",
   "extras": {
-   "author": "nirvaraj (https://sketchfab.com/nirvaraj)",
-   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
-   "source": "https://sketchfab.com/3d-models/subway-surfers-coin-0e9142deb008408f8814acd71abf8018",
-   "title": "Subway Surfers Coin",
-   "note": "baked from scene.gltf by bake_lite.py: same mesh, in game space; the atlas cut down to what the coin uses"
+   "note": "baked from subway_surfers.gltf by bake_lite.py: the mesh in game space, re-unwrapped, with a texture painted from its own silhouette",
+   "source": "Sketchfab, \"subway surfers\" headstart token"
   }
  },
  "scene": 0,
@@ -21,12 +18,12 @@
  "nodes": [
   {
    "mesh": 0,
-   "name": "coin"
+   "name": "fire"
   }
  ],
  "meshes": [
   {
-   "name": "coin",
+   "name": "fire",
    "primitives": [
     {
      "attributes": {
@@ -45,35 +42,35 @@
   {
    "bufferView": 1,
    "componentType": 5126,
-   "count": 82,
+   "count": 938,
    "type": "VEC3",
    "min": [
-    -0.42,
-    -0.41991867003161765,
-    -0.09406247317405
+    -0.47831260259983965,
+    -0.8,
+    -0.065
    ],
    "max": [
-    0.42,
-    0.41991867003161765,
-    0.09406247317405
+    0.47831260259983965,
+    0.8,
+    0.065
    ]
   },
   {
    "bufferView": 2,
    "componentType": 5126,
-   "count": 82,
+   "count": 938,
    "type": "VEC3"
   },
   {
    "bufferView": 3,
    "componentType": 5126,
-   "count": 82,
+   "count": 938,
    "type": "VEC2"
   },
   {
    "bufferView": 0,
    "componentType": 5123,
-   "count": 240,
+   "count": 2388,
    "type": "SCALAR"
   }
  ],
@@ -81,37 +78,37 @@
   {
    "buffer": 0,
    "byteOffset": 0,
-   "byteLength": 480,
+   "byteLength": 4776,
    "target": 34963
   },
   {
    "buffer": 0,
-   "byteOffset": 480,
-   "byteLength": 984,
+   "byteOffset": 4776,
+   "byteLength": 11256,
    "target": 34962
   },
   {
    "buffer": 0,
-   "byteOffset": 1464,
-   "byteLength": 984,
+   "byteOffset": 16032,
+   "byteLength": 11256,
    "target": 34962
   },
   {
    "buffer": 0,
-   "byteOffset": 2448,
-   "byteLength": 656,
+   "byteOffset": 27288,
+   "byteLength": 7504,
    "target": 34962
   }
  ],
  "buffers": [
   {
-   "byteLength": 3104,
-   "uri": "coin.lite.bin"
+   "byteLength": 34792,
+   "uri": "energy-token.bin"
   }
  ],
  "materials": [
   {
-   "name": "coin",
+   "name": "fire",
    "pbrMetallicRoughness": {
     "baseColorTexture": {
      "index": 0
@@ -128,7 +125,7 @@
  ],
  "images": [
   {
-   "uri": "coin.lite.png"
+   "uri": "energy-token-texture.png"
   }
  ],
  "samplers": [
