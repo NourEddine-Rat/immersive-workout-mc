@@ -1,10 +1,11 @@
 import {uuid} from './lib/identity.js';
-import {localCandidate,localSDP,selectedLocalRoute,candidateInfo} from './lib/local-route.js';
+import {localCandidate,localSDP,selectedLocalRoute,candidateInfo,hintedCandidate} from './lib/local-route.js';
 
 const HELP='Connect both devices to the same Wi-Fi, allow Local Network access if asked, and avoid guest Wi-Fi or a VPN. Then retry.';
 export class DirectLink {
-  constructor({role,signal,onMessage=()=>{},onState=()=>{}}){
+  constructor({role,signal,addressHint='',onMessage=()=>{},onState=()=>{}}){
     this.role=role;this.signalOut=signal;this.onMessage=onMessage;this.onState=onState;
+    this.addressHint=addressHint;
     this.peer=null;this.pc=null;this.status='waiting';this.up=false;this.serial=Promise.resolve();
     this.monitor=setInterval(()=>this.tick(),250);
   }
@@ -39,9 +40,12 @@ export class DirectLink {
     catch{this.state('unsupported','This browser blocked the direct connection. Check its WebRTC and Local Network settings, then reload.');return null;}
     pc.onicecandidate=e=>{
       if(this.pc!==pc||!e.candidate||!localCandidate(e.candidate))return;
-      this.localCandidates.push(candidateInfo(e.candidate));
-      const message={kind:'candidate',candidate:e.candidate.toJSON()};
-      if(this.descriptionSent)this.emit(message);else this.pendingCandidates.push(message);
+      const original=e.candidate.toJSON(),hint=hintedCandidate(original,this.addressHint);
+      for(const candidate of hint?[{...original,candidate:hint},original]:[original]){
+        this.localCandidates.push(candidateInfo(candidate));
+        const message={kind:'candidate',candidate};
+        if(this.descriptionSent)this.emit(message);else this.pendingCandidates.push(message);
+      }
     };
     pc.ondatachannel=e=>{if(this.pc===pc)this.channel(e.channel);};
     pc.onconnectionstatechange=()=>{
@@ -80,7 +84,7 @@ export class DirectLink {
   }
   describe(kind,description){
     // Preserve description-before-candidate ordering even if a browser gathers ICE early.
-    this.emit({kind,description:{type:kind,sdp:localSDP(description.sdp)}});
+    this.emit({kind,description:{type:kind,sdp:localSDP(description.sdp,this.addressHint)}});
     this.descriptionSent=true;
     for(const candidate of this.pendingCandidates.splice(0))this.emit(candidate);
   }
@@ -135,7 +139,7 @@ export class DirectLink {
       if(!m||typeof m!=='object')return;
       this.lastHeard=performance.now();
       if(channel.label==='control'){
-        if(m.t==='_local-proof'&&m.id===this.negotiationId){this.peerVerified=true;this.promote();return;}
+        if(m.t==='_local-proof'&&m.id===this.negotiationId){const first=!this.peerVerified;this.peerVerified=true;if(first)this.check();this.promote();return;}
         if(m.t==='_pulse'){this.internal({t:'_pulse-ack',at:m.at});return;}
         if(m.t==='_pulse-ack'){if(Number.isFinite(m.at))this.rttMs=Math.max(0,Math.round(performance.now()-m.at));return;}
       }
@@ -190,7 +194,9 @@ export class DirectLink {
     if(this.up&&now-this.lastHeard>10000){this.unavailable('The direct Wi-Fi connection stopped responding. '+HELP);return;}
     this.internal({t:'_pulse',at:now});
     if(now-this.lastCheck>750){this.lastCheck=now;this.check();}
-    if(!this.up&&now-this.started>12000&&!this.retryTimer)this.unavailable('The devices cannot reach each other over local Wi-Fi. '+HELP);
+    // Give browser address discovery and permission prompts time to finish.
+    // The presentation layer offers help sooner without aborting this attempt.
+    if(!this.up&&now-this.started>60000&&!this.retryTimer)this.unavailable('The devices cannot reach each other over local Wi-Fi. '+HELP);
   }
   send(message){
     // Trust the verified route and open channel, not an aggregate state that can

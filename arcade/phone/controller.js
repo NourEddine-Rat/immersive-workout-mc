@@ -68,7 +68,8 @@ import {ConnectionNotice} from '../engine/lib/connection-notice.js';
     text($('controlStatus'),connectionIssue?'SCREEN IN USE':!paired?'NOT CONNECTED':state.state==='connected'?'CONNECTED':state.state==='reconnecting'?'RECONNECTING':'CONNECTING');
     const visible=paired&&!connectionIssue&&!root.hidden&&!window.PhoneLive?.visible&&state.visible;
     if(!visible){if(reconnect.open)reconnect.close();return;}
-    text(reconnect.querySelector('h2'),state.state==='reconnecting'?'Reconnecting to your PC':state.state==='help'?'Check your Wi-Fi':'Connecting to your PC');
+    text(reconnect.querySelector('h2'),state.state==='reconnecting'?'Reconnecting to your PC':state.state==='help'?'Finish connecting':'Connecting to your PC');
+    text(reconnect.querySelector('#reconnectHelp'),state.state==='help'?'Keep Play open here. On your PC, open Connection help to try connecting with its Wi-Fi address.':'Keep both screens open on the same Wi-Fi. We’ll connect automatically.');
     reconnect.querySelector('#reconnectRetry').hidden=!state.retry;
     if(!reconnect.open){reconnect.showModal();reconnect.querySelector('h2').focus({preventScroll:true});}
   }

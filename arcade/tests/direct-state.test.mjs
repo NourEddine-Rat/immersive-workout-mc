@@ -50,6 +50,16 @@ test('a short phone rendering stall does not destroy an established connection',
  }finally{link.destroy();}
 });
 
+test('slow local discovery is not restarted every twelve seconds',()=>{
+ const {link}=fixture('connecting');
+ try{
+  link.peer={hostId:'pc',clientId:'phone',peerId:'pair'};
+  link.started=performance.now()-20000;link.lastCheck=performance.now();
+  link.tick();assert.equal(link.retryTimer,undefined);assert.notEqual(link.status,'blocked');
+  link.started=performance.now()-61000;link.tick();assert.equal(link.status,'blocked');assert.ok(link.retryTimer);
+ }finally{link.destroy();}
+});
+
 test('a paired phone can restart when only the PC still thinks the link is connected',async()=>{
   const {link}=fixture('connected');let offers=0;
   try{
@@ -88,5 +98,19 @@ test('the initial offer contains gathered LAN candidates and excludes public can
   pc.localDescription={type:'offer',sdp:'v=0\r\na=candidate:1 1 udp 1 pc.local 5000 typ host\r\na=candidate:2 1 udp 1 8.8.8.8 5001 typ host\r\n'};
   pc.iceGatheringState='complete';pc.dispatchEvent(new Event('icegatheringstatechange'));await pending;
   const offer=messages.find(m=>m.kind==='offer');assert.match(offer.description.sdp,/pc.local/);assert.doesNotMatch(offer.description.sdp,/8\.8\.8\.8/);
+ }finally{link.destroy();}
+});
+
+test('only the current control channel proof triggers verification, and repeated proofs do not echo',()=>{
+ const link=new DirectLink({role:'host',signal:()=>{}});let checks=0;
+ link.pc={close(){}};link.negotiationId='current';link.check=()=>checks++;
+ const control={label:'control',close(){}},motion={label:'motion',ordered:false,maxRetransmits:0,close(){}};
+ try{
+  link.channel(control);link.channel(motion);
+  const proof=id=>({data:JSON.stringify({t:'_local-proof',id})});
+  control.onmessage(proof('old'));motion.onmessage(proof('current'));
+  assert.equal(checks,0);assert.ok(!link.peerVerified);
+  control.onmessage(proof('current'));control.onmessage(proof('current'));
+  assert.equal(checks,1);assert.equal(link.peerVerified,true);
  }finally{link.destroy();}
 });

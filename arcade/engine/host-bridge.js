@@ -2,6 +2,7 @@ import {DirectLink} from './direct-link.js';
 import {screenSession} from './screen-session.js';
 import {readSessions, mergeSessions, JOURNAL_KEY} from './activity-store.js';
 import {uuid} from './lib/identity.js';
+import {lanIPv4} from './lib/local-route.js';
 import * as Profile from './profile.js';
 const remote = new URLSearchParams(location.search).get('controller') === '1';
 const route = location.pathname;
@@ -11,6 +12,9 @@ let socket, stopped=false, retry, pairedUser=null, pairedClient=null, lastPaired
 const visible = el => el && !el.closest('[hidden]') && getComputedStyle(el).display!=='none' && el.getClientRects().length>0;
 const listeners=new Set(),connectionListeners=new Set();
 let direct,lastSample=0,firstSample=0,motion='needed';
+const ADDRESS_KEY='inmotion.local-address.v1';
+let addressHint='';
+try{const saved=sessionStorage.getItem(ADDRESS_KEY);if(lanIPv4(saved))addressHint=saved;}catch{}
 const signal=m=>{if(socket?.readyState===1)socket.send(JSON.stringify(m));};
 const send=m=>active&&direct?.send({...m,hostId:id});
 function save(){try{journal=mergeSessions(readSessions(),journal);localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));}catch{send({t:'host-warning',message:'PC storage is full. Keep this phone connected to save the session.'});}}
@@ -69,7 +73,7 @@ function receive(m){
   if(m.t==='host-home'&&m.clientId===pairedClient)location.assign('/');
   for(const listener of listeners)listener(m);
 }
-direct=new DirectLink({role:'host',signal,onMessage:receive,onState:state=>{
+direct=new DirectLink({role:'host',signal,addressHint,onMessage:receive,onState:state=>{
   if(!state.direct)firstSample=lastSample=0;
   connectionState();if(state.direct){publish();syncHistory();}
 }});
@@ -110,6 +114,14 @@ export const hostBridge={
   },
   send,
   retryLocal(){direct.retry();},
+  get localAddress(){return direct.addressHint;},
+  setLocalAddress(value){
+    const address=String(value||'').trim();
+    if(address&&!lanIPv4(address))throw Error('Enter this PC’s private Wi-Fi IPv4 address, such as 192.168.1.20.');
+    direct.addressHint=address;
+    try{if(address)sessionStorage.setItem(ADDRESS_KEY,address);else sessionStorage.removeItem(ADDRESS_KEY);}catch{}
+    direct.retry();
+  },
   onMessage(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
   onConnection(listener){connectionListeners.add(listener);listener(hostBridge.connection);return ()=>connectionListeners.delete(listener);},
   get id(){return id;},get active(){return active;},get clientId(){return pairedClient;},

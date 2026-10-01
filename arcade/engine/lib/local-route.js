@@ -18,9 +18,23 @@ export function localCandidate(candidate){
   const parts=line.replace(/^a=/,'').trim().split(/\s+/),typ=parts.indexOf('typ');
   return parts[0]?.startsWith('candidate:')&&parts[2]?.toLowerCase()==='udp'&&typ>=0&&parts[typ+1]==='host'&&localAddress(parts[4]);
 }
-export function localSDP(sdp){
+export function lanIPv4(address){
+  return typeof address==='string'&&/^\d{1,3}(?:\.\d{1,3}){3}$/.test(address)&&address.split('.').every(part=>String(Number(part))===part)&&localAddress(address)&&!address.startsWith('127.');
+}
+export function hintedCandidate(candidate,address){
+  if(!lanIPv4(address)||!localCandidate(candidate))return null;
+  const line=typeof candidate==='string'?candidate:candidate.candidate;
+  const parts=line.replace(/^a=/,'').trim().split(/\s+/);
+  if(parts[4]===address)return null;
+  // Supplement this socket's address, preserving its port and ICE credentials.
+  // The original candidate remains available if the supplied address is stale.
+  parts[4]=address;return parts.join(' ');
+}
+export function localSDP(sdp,addressHint=''){
   if(typeof sdp!=='string'||sdp.length>65536)throw Error('Invalid connection offer');
-  return sdp.split(/\r?\n/).filter(line=>!line.startsWith('a=candidate:')||localCandidate(line)).join('\r\n');
+  return sdp.split(/\r?\n/).filter(line=>!line.startsWith('a=candidate:')||localCandidate(line)).flatMap(line=>{
+    const hint=hintedCandidate(line,addressHint);return hint?['a='+hint,line]:[line];
+  }).join('\r\n');
 }
 export function candidateInfo(candidate){
   if(!localCandidate(candidate))return null;
@@ -28,7 +42,7 @@ export function candidateInfo(candidate){
   const parts=line.replace(/^a=/,'').trim().split(/\s+/);
   return {foundation:parts[0].slice(10),protocol:parts[2].toLowerCase(),address:parts[4],port:Number(parts[5])};
 }
-export function selectedLocalRoute(report,{localCandidates=[],remoteCandidates=[]}={}){
+export function selectedLocalRoute(report,{localCandidates=[],remoteCandidates=[],peerVerified=false}={}){
   const stats=[...report.values()];
   const transport=stats.find(s=>s.type==='transport'&&s.selectedCandidatePairId);
   // Safari may omit selectedCandidatePairId and retain stale nominated pairs.
@@ -50,6 +64,13 @@ export function selectedLocalRoute(report,{localCandidates=[],remoteCandidates=[
     return c.candidateType==='host'&&known.some(candidate=>String(candidate.foundation)===String(c.foundation)&&candidate.port===Number(c.port)&&candidate.protocol==='udp'&&localAddress(candidate.address))?null:'candidate-hidden';
   };
   const localReason=reason(local,localCandidates),remoteReason=reason(remote,remoteCandidates);
+  // When only one side can resolve mDNS, the reverse path is peer-reflexive.
+  // Chrome hides that address and gives it a new foundation. The other endpoint
+  // must first verify BOTH ends of the selected route and send its proof over
+  // this negotiation's encrypted control channel. Match the announced UDP port
+  // as well; never accept a missing local proof, unknown port, public or relay path.
+  const peerConfirmed=!localReason&&remoteReason==='candidate-hidden'&&remote?.candidateType==='prflx'&&peerVerified&&remoteCandidates.some(c=>c.port===Number(remote.port)&&c.protocol==='udp'&&localAddress(c.address));
+  if(peerConfirmed)return {allowed:true,protocol:'udp',localType:local.candidateType,remoteType:remote.candidateType,remoteVerifiedByPeer:true,rttMs:Number.isFinite(pair.currentRoundTripTime)?Math.round(pair.currentRoundTripTime*1000):null};
   if(localReason||remoteReason)return {allowed:false,reason:(localReason?'local-':'remote-')+(localReason||remoteReason),pending:[localReason,remoteReason].filter(Boolean).every(r=>['candidate-pending','candidate-hidden'].includes(r))};
   return {allowed:true,protocol:'udp',localType:local.candidateType,remoteType:remote.candidateType,rttMs:Number.isFinite(pair.currentRoundTripTime)?Math.round(pair.currentRoundTripTime*1000):null};
 }

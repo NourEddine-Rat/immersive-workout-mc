@@ -24,9 +24,18 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
     </div>
     <div class="pair-link-row"><a class="pair-address" target="_blank" rel="noopener">Preparing phone link…</a><button class="pair-copy" type="button" disabled>Copy link</button></div>
     <p class="pair-network"></p><details class="pair-trouble" hidden><summary>Phone not opening the link?</summary><p class="pair-warning"></p></details>
-    <footer class="pair-state" role="status" aria-live="polite"><span>Preparing your connection…</span><button class="pair-retry" type="button" hidden>Retry</button></footer>`;
+    <footer class="pair-state" role="status" aria-live="polite"><span>Preparing your connection…</span><button class="pair-retry" type="button" hidden>Retry</button></footer>
+    <details class="pair-local-help"><summary>Connection help</summary><p>Allow Local Network access in your browser and use the same Wi-Fi on both devices. If automatic discovery fails, enter this PC’s IPv4 address from its Wi-Fi settings.</p><form class="pair-local-form"><label for="pair-local-address">PC Wi-Fi address</label><div><input id="pair-local-address" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="192.168.1.20" aria-describedby="pair-local-feedback"><button type="submit">Connect directly</button></div><p id="pair-local-feedback" role="status"></p><button class="pair-local-reset" type="button" hidden>Use automatic discovery</button></form></details>`;
   document.body.append(dialog);
   const $=selector=>dialog.querySelector(selector);
+  $('#pair-local-address').value=hostBridge.localAddress;
+  $('.pair-local-reset').hidden=!hostBridge.localAddress;
+  $('.pair-local-form').onsubmit=e=>{
+    e.preventDefault();
+    try{hostBridge.setLocalAddress($('#pair-local-address').value);$('#pair-local-feedback').textContent='Trying this Wi-Fi address. Keep your phone’s Play screen open.';$('.pair-local-reset').hidden=!hostBridge.localAddress;}
+    catch(error){$('#pair-local-feedback').textContent=error.message;}
+  };
+  $('.pair-local-reset').onclick=()=>{hostBridge.setLocalAddress('');$('#pair-local-address').value='';$('#pair-local-feedback').textContent='Automatic discovery restored.';$('.pair-local-reset').hidden=true;};
   let info=null,loading=false,issue='',inspecting=false,unlocked=false;
   const notice=new ConnectionNotice();
   const presented=()=>window.galleryIntro?.presented===true;
@@ -76,7 +85,7 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
     $('.pair-close').hidden=!ready;
     $('.pair-retry').hidden=!status.retry||ready;
     dialog.dataset.state=ready?'ready':'waiting';
-    const message=ready?'Phone connected over local Wi-Fi.':state.online&&!state.active?'Close your other game tab to continue here.':status.state==='reconnecting'?'Phone disconnected. Open Play on your phone.':!info&&issue?'Couldn’t prepare the QR code. Please retry.':status.state==='help'?'Check that both devices use the same Wi-Fi.':status.state==='connecting'?'Connecting to your phone…':'Waiting for your phone';
+    const message=ready?'Phone connected over local Wi-Fi.':state.online&&!state.active?'Close your other game tab to continue here.':status.state==='reconnecting'?'Phone disconnected. Open Play on your phone.':!info&&issue?'Couldn’t prepare the QR code. Please retry.':status.state==='help'?'Local connection needs help. See Connection help below.':status.state==='connecting'?'Connecting to your phone…':'Waiting for your phone';
     const label=$('.pair-state span');if(label.textContent!==message)label.textContent=message;
     // Pairing may finish in the background, but never interrupt the gallery entrance.
     if(!presented()||failed())return;

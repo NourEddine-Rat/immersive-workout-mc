@@ -2,7 +2,9 @@ import {returningPhone} from './phone-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {chromium} from 'playwright';
+import {networkInterfaces} from 'node:os';
+import {chromium,webkit} from 'playwright';
+import {lanIPv4} from '../engine/lib/local-route.js';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function server(){
  const child=spawn('python3',['-u','-c',"import serve; s=serve.Dual(('127.0.0.1',0),serve.Handler); print(s.server_port,flush=True); s.serve_forever()"],{cwd:new URL('../',import.meta.url),stdio:['ignore','pipe','pipe']});
@@ -126,4 +128,44 @@ test('unverifiable/relay candidate stats block motion with no WebSocket fallback
   assert.match(await pc.locator('.pair-state').innerText(),/local|Wi-Fi/i);
   assert.equal(await phone.evaluate(()=>sentToServer.some(m=>m.t==='samples')),false);
  }finally{await browser.close();await s.close();}
+});
+
+test('a private PC address recovers blocked mDNS discovery in WebKit and survives game navigation',{timeout:90000},async()=>{
+ const address=Object.values(networkInterfaces()).flat().find(n=>n.family==='IPv4'&&!n.internal&&lanIPv4(n.address))?.address;
+ assert.ok(address,'a local network interface is needed for the direct UDP test');
+ const s=await server(),desktop=await launch(),mobile=await webkit.launch({headless:true});
+ try{
+  const pc=await desktop.newPage(),phone=await mobile.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  await returningPhone(phone);
+  for(const page of [pc,phone]){
+   await instrument(page);
+   await page.addInitScript(()=>{
+    // Model a network/browser where .local names never resolve. Numeric private
+    // candidates still use real browser ICE and real UDP sockets.
+    const Original=RTCPeerConnection;
+    window.RTCPeerConnection=class extends Original{
+     setRemoteDescription(description){return super.setRemoteDescription({...description,sdp:description.sdp.split(/\r?\n/).filter(line=>!line.startsWith('a=candidate:')||!line.includes('.local')).join('\r\n')});}
+     addIceCandidate(candidate){return candidate?.candidate?.includes('.local')?Promise.resolve():super.addIceCandidate(candidate);}
+    };
+   });
+  }
+  await pc.goto(s.base,{waitUntil:'domcontentloaded'});await pc.waitForSelector('.pair-qr svg');
+  await phone.goto(s.base+'/phone.html?connect='+await pc.locator('.pair-code').textContent(),{waitUntil:'domcontentloaded'});
+  await pc.waitForFunction(()=>testPCs.at(-1)?.remoteDescription);await sleep(1000);
+  assert.equal(await phone.evaluate(()=>PhoneConnection.status.direct),false);
+  await pc.locator('.pair-local-help summary').click();await pc.locator('#pair-local-address').fill('8.8.8.8');
+  await pc.locator('.pair-local-form button[type=submit]').click();
+  assert.match(await pc.locator('#pair-local-feedback').textContent(),/private Wi-Fi IPv4/);
+  await pc.locator('#pair-local-address').fill(address);await pc.locator('.pair-local-form button[type=submit]').click();
+  try{await phone.waitForFunction(()=>PhoneConnection.status.direct,{},{timeout:20000});}
+  catch(error){
+   for(const page of [pc,phone])console.error(page===pc?'PC route:':'Phone route:',await page.evaluate(async()=>({ice:testPCs.at(-1)?.iceConnectionState,stats:[...(await testPCs.at(-1).getStats()).values()].filter(s=>/candidate|transport/.test(s.type))})));
+   throw error;
+  }
+  assert.equal(await phone.evaluate(()=>PhoneConnection.status.route.allowed),true);
+  await pc.goto(s.base+'/training/',{waitUntil:'domcontentloaded'});
+  await pc.waitForFunction(async()=>(await import('/engine/host-bridge.js')).hostBridge.connection.direct,{},{timeout:20000});
+  assert.equal(await pc.evaluate(async()=>(await import('/engine/host-bridge.js')).hostBridge.localAddress),address);
+  assert.deepEqual(await pc.evaluate(()=>testPCs.at(-1).getConfiguration().iceServers),[]);
+ }finally{await mobile.close();await desktop.close();await s.close();}
 });
