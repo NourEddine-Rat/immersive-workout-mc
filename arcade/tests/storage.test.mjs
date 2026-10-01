@@ -12,7 +12,10 @@ test('blocked localStorage retains pairing, identity and profile in memory; dupl
  vm.runInNewContext(source,sandbox);
  const app=sandbox.PhoneApp;
  app.save('inmotion.pair.v1',{code:'123456'});assert.equal(app.read('inmotion.pair.v1',null).code,'123456');
- app.save('inmotion.basics.v1',{username:'player',weightKg:88});assert.equal(app.profile.weightKg,88);assert.equal(app.id,'phone-identity');
+ assert.equal(app.onboarded,false);
+ app.preference('guideSeen',true);app.preference('page','controller');assert.equal(app.onboarded,false);
+ app.save('inmotion.basics.v1',{username:'player',weightKg:88});assert.equal(app.profile.weightKg,88);assert.equal(app.id,'phone-identity');assert.equal(app.onboarded,false);
+ app.save('inmotion.basics.v1',{username:'player',weightKg:88,sex:'female'});assert.equal(app.onboarded,true);
  assert.equal(app.storageOK,false);assert.equal(events.filter(e=>e==='storage-unavailable').length,1);
  const row={id:'round',userId:app.id,game:'subway',startedAt:Date.now(),updatedAt:Date.now(),steps:12,complete:true};
  app.ingest([row,row]);app.ingest([row]);assert.equal(app.sessions.length,1);assert.equal(app.summary().steps,12);

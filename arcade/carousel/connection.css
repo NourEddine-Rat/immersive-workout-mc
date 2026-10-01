@@ -38,7 +38,7 @@
 .pair-copy:disabled { opacity:.5; cursor:wait; }
 .pair-copy-input { position:fixed; left:0; top:0; width:1px; height:1px; opacity:0; }
 .pair-network { text-align:center; margin:10px 0 18px; color:#e4eef0; font-size:10px; }
-.pair-state { display:flex; align-items:center; justify-content:center; gap:9px; min-height:20px; padding-top:18px; border-top:1px solid #ffffff2a; font-size:11px; line-height:1.5; text-align:center; color:#f1f8fa; }
+.pair-state { display:flex; align-items:center; justify-content:center; gap:9px; min-height:34px; padding-top:18px; border-top:1px solid #ffffff2a; font-size:11px; line-height:1.5; text-align:center; color:#f1f8fa; }
 .pair-close { position:absolute; right:18px; top:16px; border:0; background:none; color:#fff; font-size:11px!important; line-height:1.5; padding:4px; }
 .pair-retry { padding:6px 12px; border:1px solid #ffffff50; border-radius:8px; background:#ffffff1a; color:#fff; font-size:11px!important; }
 .pair-trouble { margin:-2px 0 16px; font-size:10px; text-align:center; color:#eaf4f5; }

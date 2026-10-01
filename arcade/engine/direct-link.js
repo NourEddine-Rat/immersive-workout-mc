@@ -127,7 +127,7 @@ export class DirectLink {
       this.onMessage(m);
     };
   }
-  internal(message){if(this.control?.readyState==='open'&&this.control.bufferedAmount<32768){try{this.control.send(JSON.stringify(message));}catch{}}}
+  internal(message){if(this.pc?.connectionState==='connected'&&this.control?.readyState==='open'&&this.control.bufferedAmount<32768){try{this.control.send(JSON.stringify(message));}catch{}}}
   promote(){
     if(this.verified&&this.peerVerified&&this.control?.readyState==='open'&&this.motion?.readyState==='open'&&!this.up){
       clearTimeout(this.retryTimer);this.retryTimer=null;
@@ -160,7 +160,9 @@ export class DirectLink {
     if(!this.up&&now-this.started>12000&&!this.retryTimer)this.unavailable('The devices cannot reach each other over local Wi-Fi. '+HELP);
   }
   send(message){
-    if(!this.up)return false;
+    // WebKit can keep a data channel "open" briefly after its peer has closed.
+    // Stop sending immediately, before the asynchronous close handler runs.
+    if(!this.up||this.pc?.connectionState!=='connected')return false;
     const channel=message.t==='samples'?this.motion:this.control;
     if(channel?.readyState!=='open'||channel.bufferedAmount>(message.t==='samples'?4096:262144))return false;
     try{const data=JSON.stringify(message);if(data.length>65536)return false;channel.send(data);return true;}catch{return false;}

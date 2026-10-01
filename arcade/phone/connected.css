@@ -60,3 +60,33 @@
 
 .remote-fallback { padding:20px var(--phone-gutter,20px); }
 .remote-fallback button { display:block; width:100%; margin:10px 0; min-height:48px; }
+
+/* Keep reconnection above Play, with one stable card throughout automatic retries. */
+.phone-reconnect {
+  box-sizing:border-box;position:fixed;inset:max(24px,env(safe-area-inset-top)) 0 auto;
+  width:min(420px,calc(100vw - 32px));max-height:calc(100dvh - 48px);margin:0 auto;
+  overflow:auto;padding:23px;color:#f7f5fb;text-align:left;
+  border:1px solid #ffffff55;border-radius:28px;
+  background:linear-gradient(130deg,#ffffff21,#ffffff08),#201c2ed9;
+  backdrop-filter:blur(28px) saturate(1.2);-webkit-backdrop-filter:blur(28px) saturate(1.2);
+  box-shadow:inset 0 1px 0 #ffffff45,0 18px 70px #0006;
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+}
+.phone-reconnect::backdrop { background:#08061055;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px); }
+.phone-reconnect header { display:flex;align-items:center;justify-content:space-between;gap:12px; }
+.phone-reconnect header>span { font-size:9px;letter-spacing:.14em;color:#c6bfda;white-space:nowrap; }
+.phone-reconnect button { width:auto;margin:0;cursor:pointer;font:600 12px/1.4 -apple-system,BlinkMacSystemFont,sans-serif; }
+.phone-reconnect .reconnect-later { min-width:44px;min-height:44px;margin:-12px -10px -12px 0;padding:10px;background:transparent;border:0;color:#d8d1e5; }
+.phone-reconnect h2 { margin:22px 0 10px;font-size:27px;line-height:1.15;letter-spacing:-.045em;font-weight:600;outline:none; }
+.phone-reconnect p { margin:0;color:#d1cadf;font-size:13px; }
+.phone-reconnect details { margin:20px 0;font-size:12px;color:#ded8e8; }
+.phone-reconnect summary { width:fit-content;padding:5px 0;cursor:pointer; }
+.phone-reconnect details p { margin-top:8px;font-size:12px;line-height:1.6; }
+.reconnect-actions { display:flex;gap:10px; }
+.reconnect-actions button { flex:1;min-height:46px;padding:12px;border:1px solid #ffffff30;border-radius:15px;color:#f5f1fa;background:#ffffff0e; }
+.reconnect-actions #reconnectRetry { background:linear-gradient(135deg,#fff,#e3dcef);color:#30283e;border-color:#ffffffaa;box-shadow:inset 0 1px 0 #fff; }
+.phone-reconnect button:disabled { opacity:.55;cursor:wait; }
+.phone-reconnect button:focus-visible,.phone-reconnect summary:focus-visible { outline:2px solid #e8dcff;outline-offset:3px; }
+.phone-reconnect [hidden] { display:none!important; }
+@media(prefers-reduced-transparency:reduce) { .phone-reconnect { background:#292432;backdrop-filter:none;-webkit-backdrop-filter:none; } }
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) { .phone-reconnect { background:#292432; } }

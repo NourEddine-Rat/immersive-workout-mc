@@ -89,7 +89,7 @@ const send=o=>{
   if(!authenticated)return false;
   return direct.send({...o,clientId:app.id,hostId:direct.peer?.hostId});
 };
-const join=()=>{const pair=app.read('inmotion.pair.v1',null);if(pair)signal({t:'phone-join',pairCode:pair.code,instanceId});};
+const join=()=>{const pair=app.read('inmotion.pair.v1',null);if(app.onboarded&&pair)signal({t:'phone-join',pairCode:pair.code,instanceId});};
 const sendProfile=()=>send({t:'phone-profile',profile:app.profile});
 window.addEventListener('phone-profile',sendProfile);
 window.addEventListener('phone-paired',()=>{replaced=false;connect();join();});
@@ -422,7 +422,8 @@ const bars = $('bars'), bctx = bars.getContext('2d');
   requestAnimationFrame(draw);
 })();
 
-connect();
+// Pair only after startup has resolved onboarding and any new QR code.
+// The controller's phone-paired event opens the signaling connection.
 
 addEventListener('pagehide',()=>{closed=true;clearTimeout(reconnectTimer);direct.close();ws?.close();});
 addEventListener('pageshow',e=>{if(e.persisted){closed=false;connect();}});

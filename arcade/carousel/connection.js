@@ -1,5 +1,6 @@
 import {qrcode} from '../engine/lib/qrcode.js';
 import {hostBridge} from '../engine/host-bridge.js';
+import {ConnectionNotice} from '../engine/lib/connection-notice.js';
 
 if(new URLSearchParams(location.search).get('controller')!=='1'){
   const trigger=document.getElementById('phone-status'),frame=document.querySelector('.frame');
@@ -27,6 +28,7 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
   document.body.append(dialog);
   const $=selector=>dialog.querySelector(selector);
   let info=null,loading=false,issue='',inspecting=false,unlocked=false;
+  const notice=new ConnectionNotice();
   const presented=()=>window.galleryIntro?.presented===true;
   const failed=()=>window.galleryIntro?.failed===true;
   const connected=()=>hostBridge.connection.active&&hostBridge.connection.direct;
@@ -70,10 +72,12 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
   }
   function render(){
     const state=hostBridge.connection,ready=connected();
+    const status=notice.update({connected:ready,pending:state.paired||!!issue||!!state.error,failed:!!issue||!!state.error});
     $('.pair-close').hidden=!ready;
-    $('.pair-retry').hidden=!issue&&!state.error;
-    dialog.dataset.state=ready?'ready':issue?'error':'waiting';
-    $('.pair-state span').textContent=ready?'Phone connected over local Wi-Fi.':issue||state.error||(state.online&&!state.active?'Close your other game tab to continue here.':state.paired?(state.message||'Connecting directly over Wi-Fi…'):'Waiting for your phone');
+    $('.pair-retry').hidden=!status.retry||ready;
+    dialog.dataset.state=ready?'ready':'waiting';
+    const message=ready?'Phone connected over local Wi-Fi.':state.online&&!state.active?'Close your other game tab to continue here.':status.state==='reconnecting'?'Phone disconnected. Open Play on your phone.':!info&&issue?'Couldn’t prepare the QR code. Please retry.':status.state==='help'?'Check that both devices use the same Wi-Fi.':status.state==='connecting'?'Connecting to your phone…':'Waiting for your phone';
+    const label=$('.pair-state span');if(label.textContent!==message)label.textContent=message;
     // Pairing may finish in the background, but never interrupt the gallery entrance.
     if(!presented()||failed())return;
     if(ready){
@@ -86,7 +90,7 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
   }
   $('.pair-close').onclick=unlock;
   dialog.addEventListener('cancel',e=>{e.preventDefault();unlock();});
-  $('.pair-retry').onclick=()=>{hostBridge.retryLocal();refresh();};
+  $('.pair-retry').onclick=()=>{const button=$('.pair-retry');button.disabled=true;hostBridge.retryLocal();refresh();setTimeout(()=>button.disabled=false,1500);};
   $('.pair-copy').onclick=async()=>{
     try{await navigator.clipboard.writeText(info.phoneUrl);$('.pair-copy').textContent='Copied';}
     catch{

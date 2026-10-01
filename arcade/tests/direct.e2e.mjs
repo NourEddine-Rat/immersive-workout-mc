@@ -1,3 +1,4 @@
+import {returningPhone} from './phone-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -23,7 +24,7 @@ async function startMotion(phone){
 }
 async function pair(s,browser){
  const pc=await browser.newPage({viewport:{width:1000,height:700}}),phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
- await instrument(pc);await instrument(phone);
+ await instrument(pc);await instrument(phone);await returningPhone(phone);
  await pc.goto(s.base,{waitUntil:'domcontentloaded'});await pc.waitForFunction(()=>/^\d{6}$/.test(document.querySelector('.pair-code')?.textContent));
  const code=await pc.locator('.pair-code').textContent();
  await phone.goto(s.base+'/phone.html?connect='+code,{waitUntil:'domcontentloaded'});
@@ -70,6 +71,7 @@ test('unverifiable/relay candidate stats block motion with no WebSocket fallback
  const s=await server(),browser=await launch();
  try{
   const pc=await browser.newPage(),phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  await returningPhone(phone);
   for(const page of [pc,phone]){
     await instrument(page);
     await page.addInitScript(()=>{
@@ -82,7 +84,7 @@ test('unverifiable/relay candidate stats block motion with no WebSocket fallback
   await pc.goto(s.base,{waitUntil:'domcontentloaded'});await pc.waitForSelector('.pair-qr svg');const code=await pc.locator('.pair-code').textContent();
   await phone.goto(s.base+'/phone.html?connect='+code,{waitUntil:'domcontentloaded'});
   await phone.waitForFunction(()=>window.PhoneConnection?.status.status==='blocked',{},{timeout:20000});
-  await startMotion(phone);await sleep(2000);
+  await phone.evaluate(()=>PhoneMotion.enable());await sleep(2000);
   assert.equal(await phone.evaluate(()=>window.PhoneConnection?.status.direct),false);
   assert.equal(await phone.evaluate(()=>motionPackets),0);
   assert.equal(await pc.evaluate(()=>phoneGate.ready),false);

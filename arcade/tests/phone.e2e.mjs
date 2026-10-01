@@ -1,3 +1,4 @@
+import {returningPhone} from './phone-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -22,11 +23,13 @@ async function motions(page){
 }
 const launch=()=>chromium.launch({channel:process.env.ARCADE_BROWSER||'chrome',headless:true,args:['--enable-unsafe-swiftshader']});
 
+async function phonePage(browser){const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});await returningPhone(page);return page;}
+
 test('PC QR, phone pairing, all game pages, remote actions, motion pause/resume, history and reload',{timeout:240000},async()=>{
   const s=await server(),browser=await launch(),errors=[];
   try{
     const pc=await browser.newPage({viewport:{width:1000,height:700}});
-    const phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    const phone=await phonePage(browser);
     for(const [name,page] of [['pc',pc],['phone',phone]]){
       page.on('pageerror',e=>errors.push(name+': '+e.message));
       page.on('response',response=>{if(response.url().startsWith(s.base)&&response.status()>=400)errors.push(`${name}: ${response.status()} ${response.url()}`);});
@@ -122,14 +125,14 @@ test('denied permissions, storage failures, camera denial, expired code and comp
     const pc=await browser.newPage();
     await pc.goto(s.base+'/training/',{waitUntil:'domcontentloaded'});
     const {pairCode}=await pc.evaluate(async()=> (await fetch('/where')).json());
-    const phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    const phone=await phonePage(browser);
     await phone.addInitScript(()=>{Storage.prototype.setItem=function(){throw new DOMException('Storage full','QuotaExceededError');};DeviceMotionEvent.requestPermission=async()=> 'denied';});
     await phone.goto(s.base+'/phone.html?connect='+pairCode,{waitUntil:'domcontentloaded'});
     await phone.waitForFunction(()=>document.querySelector('#controlStatus')?.textContent==='CONNECTED');
     await phone.locator('.live-motion-enable').click();
     await phone.waitForFunction(()=>window.PhoneMotion.status==='denied');
     assert.equal(await phone.evaluate(()=>window.PhoneApp.storageOK),false);
-    const other=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    const other=await phonePage(browser);
     await other.goto(s.base+'/phone.html?connect='+pairCode,{waitUntil:'domcontentloaded'});
     await other.waitForFunction(()=>document.querySelector('#controlStatus')?.textContent==='SCREEN IN USE');
     assert.equal(await other.locator('#controlConnect').isVisible(),true);
@@ -147,7 +150,7 @@ test('denied permissions, storage failures, camera denial, expired code and comp
 test('phone loading failures offer retry; connected carousel stays available without motion',{timeout:90000},async()=>{
   const s=await server(),browser=await launch();
   try{
-    const phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    const phone=await phonePage(browser);
     await phone.route('**/phone/controller.js',route=>route.abort());
     await phone.goto(s.base+'/phone.html',{waitUntil:'domcontentloaded'});
     await phone.waitForSelector('#phoneBoot[data-state=error]');
@@ -189,7 +192,7 @@ test('phone loading failures offer retry; connected carousel stays available wit
 test('server restart refreshes the PC code and the phone can pair again with its saved identity',{timeout:90000},async()=>{
   let s=await server();const browser=await launch();
   try{
-    const pc=await browser.newPage({viewport:{width:1000,height:700}}),phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    const pc=await browser.newPage({viewport:{width:1000,height:700}}),phone=await phonePage(browser);
     await pc.goto(s.base,{waitUntil:'domcontentloaded'});await pc.waitForSelector('.pair-qr svg');
     const old=await pc.locator('.pair-code').textContent();
     await phone.goto(s.base+'/phone.html?connect='+old,{waitUntil:'domcontentloaded'});
@@ -241,7 +244,7 @@ test('pairing waits for the finished scene and widgets; the displayed QR opens i
     const decoded=await decodePairQR(pc),code=await pc.locator('.pair-code').textContent();
     assert.equal(decoded,await pc.locator('.pair-address').getAttribute('href'));
     assert.equal(new URL(decoded).searchParams.get('connect'),code);
-    const phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    const phone=await phonePage(browser);
     await phone.goto(decoded,{waitUntil:'domcontentloaded'});
     await phone.waitForFunction(()=>document.getElementById('controlStatus')?.textContent==='CONNECTED');
     await pc.waitForFunction(()=>!document.querySelector('.pair-dialog').open);

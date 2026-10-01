@@ -5,17 +5,24 @@ function storageWarning() {
   const note = document.createElement('div');
   note.id = 'phoneStorageWarning'; note.className = 'phone-storage-warning';
   note.setAttribute('role','status');
-  note.textContent = 'Storage is unavailable. You can play, but new profile changes and activity may not survive a reload.';
+  const copy = document.createElement('span');
+  copy.textContent = 'Storage is unavailable. You can play, but your setup and activity won’t be saved after a reload.';
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button'; dismiss.textContent = 'Dismiss'; dismiss.onclick = () => note.remove();
+  note.append(copy, dismiss);
   document.body.append(note);
+  placeStorageWarning();
+}
+function placeStorageWarning() {
+  const note = document.getElementById('phoneStorageWarning');
+  if (!note) return;
+  const footer = document.querySelector('.basics-screen:not([hidden]) .basics-footer');
+  note.classList.toggle('is-inline', !!footer);
+  if (footer) footer.prepend(note);
+  else document.body.append(note);
 }
 window.addEventListener('storage-unavailable',storageWarning);
+window.addEventListener('phone-page',placeStorageWarning);
 if (!app.storageOK) storageWarning();
-if (!new URLSearchParams(location.search).has('connect')) {
-  const page = app.preferences.page;
-  if (page === 'controller') window.openController();
-  else if (page === 'profile') window.openProfile();
-  else if (page === 'setup') window.openBasics();
-  else if (page === 'statistics') window.openStatistics();
-  else if (page?.startsWith('metric:')) window.openMetric(page.slice(7));
-  else if (page === 'stats' || app.preferences.guideSeen) window.openActivity();
-}
+if (app.onboarded) window.openController();
+else app.show('welcome', document.getElementById('opener'));

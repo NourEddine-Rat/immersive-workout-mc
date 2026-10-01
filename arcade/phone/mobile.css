@@ -77,6 +77,9 @@ html,body { width:100%; overflow-x:hidden; }
 }
 .activity-notice { z-index:80; bottom:calc(var(--phone-nav-space) + 8px); font-size:12px; line-height:1.5; }
 .phone-storage-warning { bottom:calc(var(--phone-nav-space) + 8px); }
+.phone-storage-warning button { display:block;width:auto;min-height:36px;padding:5px 9px;margin:7px 0 -4px auto;border:1px solid #ffcb7a60;border-radius:9px;background:transparent;color:inherit;font:600 11px/1.3 var(--sans); }
+.phone-storage-warning.is-inline { position:static;margin:0 0 16px; }
+body:has(#opener:not([hidden]))>.phone-storage-warning { top:max(14px,env(safe-area-inset-top));bottom:auto; }
 
 /* The overview fits the available phone height, including browser bars. */
 .activity-inner {

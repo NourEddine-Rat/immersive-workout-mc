@@ -32,6 +32,7 @@
     if(!app.preview){const currentDraft=app.read('inmotion.basics.draft.v1',{});name.value=saved?.username||currentDraft.username||'';weight.value=saved?.weightKg||currentDraft.weightKg||'';sex=saved?.sex||currentDraft.sex||null;}
     const resumeStep=/^[a-zA-Z0-9_]{2,20}$/.test(name.value)?(sex?Math.min(2,Math.max(0,Number(draft.step)||0)):1):0;
     syncWeight();syncSex();showStep(edit?0:resumeStep);app.show('setup',screen);
+    screen.querySelector('.basics-local').textContent=app.storageOK?'Saved on this phone.':'Available until you close or reload this page.';
   };
   window.openBasicsStep=(n,returnTo='stats')=>{window.openBasics(true,returnTo);showStep(Math.max(0,Math.min(2,n)));};
   screen.querySelector('.basics-back').onclick=()=>{if(step){showStep(step-1);return;}screen.hidden=true;if(fromStats){if(returnPage==='profile')window.openProfile();else window.openActivity();}else{const op=document.getElementById('opener');op.classList.remove('leaving');app.show('welcome',op);}};

@@ -1,3 +1,5 @@
+import {ConnectionNotice} from '../engine/lib/connection-notice.js';
+
 (() => {
   const app=window.PhoneApp;
   const root=document.createElement('section');root.className='control-screen';root.hidden=true;root.setAttribute('aria-label','Game controller');
@@ -7,9 +9,11 @@
   <p class="control-wifi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9a14 14 0 0 1 18 0M6 12a9 9 0 0 1 12 0m-9 3a4.5 4.5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg>Same Wi-Fi as your PC. Direct motion.</p></div>
   <p class="control-message" id="controlMessage" role="status"></p><footer class="control-footer">InMotion</footer></div>`;
   document.body.append(root);
+  // Form feedback belongs above the connection form, never below the carousel.
+  root.querySelector('#controlConnect').before(root.querySelector('#controlMessage'));
   const gallery=document.createElement('div');gallery.id='controlGallery';gallery.hidden=true;
   gallery.innerHTML=`<header class="remote-heading"><div><h1>Choose your game</h1><p>Play on the big screen.</p></div><button class="control-secondary" id="remoteChange" type="button" aria-label="Connect another screen">Change screen</button></header><div class="remote-gallery"><iframe title="Swipe to choose a game on your PC" id="remoteCarousel"></iframe></div><div class="remote-swipe"><span aria-hidden="true"></span><p>Swipe to explore · tap a card to choose</p></div><div class="remote-selection"><div class="remote-caption"><span>ON YOUR PC</span><strong id="remoteGame" aria-live="polite">Loading games…</strong></div><button class="remote-play" id="remotePlay" type="button" disabled hidden>Play <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg></button><button class="control-primary" id="remoteSense" type="button">Enable motion to play</button></div>`;
-  root.querySelector('.control-message').before(gallery);
+  root.querySelector('#controlConnect').after(gallery);
   const frame=gallery.querySelector('iframe');
   const carouselMount=gallery.querySelector('.remote-gallery');
   const fallback=document.createElement('div');fallback.className='remote-fallback';fallback.hidden=true;
@@ -20,7 +24,7 @@
   function mountCarousel(){if(!frame.isConnected)carouselMount.append(frame);if(!frame.getAttribute('src')){fallback.hidden=true;carouselMount.hidden=false;frame.src='./index.html?controller=1';clearTimeout(fallbackTimer);fallbackTimer=setTimeout(showFallback,15000);}}
   function unmountCarousel(){clearTimeout(fallbackTimer);fallback.hidden=true;frame.remove();frame.removeAttribute('src');}
   const command=detail=>{if(!preview)window.dispatchEvent(new CustomEvent('phone-command',{detail:{...detail,hostId:host?.hostId}}));};
-  let link=false,lastDesktopState=null,host=null,lastHostAt=0,restoring=false,preview=false,liveBeforePreview=null,returningToGames=false,accepted=false,connectionIssue='',pairVersion=0;
+  let link=false,lastDesktopState=null,host=null,lastHostAt=0,restoring=false,preview=false,liveBeforePreview=null,returningToGames=false,accepted=false,connectionIssue='',hostWarning='',pairVersion=0;
   const isLive=()=>accepted&&link&&host&&host.clientId===app.id&&Date.now()-lastHostAt<5500&&!preview;
   let selectedRemoteGame=null;
   function updateSelection(m){
@@ -50,6 +54,31 @@
   gallery.querySelector('#remoteSense').onclick=()=>{if(preview)setMotion({status:'ready',text:'Preview: motion enabled'});else window.PhoneMotion?.enable();};
   const $=id=>root.querySelector('#'+id), video=$('scanVideo'),canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
   let stream=null,scanTimer=null,cameraVersion=0,paired=false,busy=false;
+  const notice=new ConnectionNotice();
+  const reconnect=document.createElement('dialog');
+  reconnect.className='phone-reconnect';
+  reconnect.setAttribute('aria-labelledby','reconnectTitle');
+  reconnect.setAttribute('aria-describedby','reconnectHelp');
+  reconnect.innerHTML=`<header><span>LOCAL WI-FI</span><button type="button" class="reconnect-later" aria-label="Back to stats">Later</button></header><h2 id="reconnectTitle" tabindex="-1">Connecting to your PC</h2><p id="reconnectHelp">Keep both screens open on the same Wi-Fi. We’ll connect automatically.</p><details><summary>Connection help</summary><p>Allow Local Network access if asked. Avoid guest Wi-Fi or a VPN. If you opened a different PC, choose Change screen.</p></details><div class="reconnect-actions"><button type="button" id="reconnectRetry">Try again</button><button type="button" id="reconnectChange">Change screen</button></div>`;
+  document.body.append(reconnect);
+  const text=(element,value)=>{if(element.textContent!==value)element.textContent=value;};
+  function renderConnection(){
+    if(preview){reconnect.close();return;}
+    const state=notice.update({connected:!!isLive(),pending:paired,failed:!!localIssue});
+    text($('controlStatus'),connectionIssue?'SCREEN IN USE':!paired?'NOT CONNECTED':state.state==='connected'?'CONNECTED':state.state==='reconnecting'?'RECONNECTING':'CONNECTING');
+    const visible=paired&&!connectionIssue&&!root.hidden&&!window.PhoneLive?.visible&&state.visible;
+    if(!visible){if(reconnect.open)reconnect.close();return;}
+    text(reconnect.querySelector('h2'),state.state==='reconnecting'?'Reconnecting to your PC':state.state==='help'?'Check your Wi-Fi':'Connecting to your PC');
+    reconnect.querySelector('#reconnectRetry').hidden=!state.retry;
+    if(!reconnect.open){reconnect.showModal();reconnect.querySelector('h2').focus({preventScroll:true});}
+  }
+  reconnect.querySelector('.reconnect-later').onclick=()=>window.openActivity();
+  reconnect.addEventListener('cancel',e=>{e.preventDefault();window.openActivity();});
+  reconnect.querySelector('#reconnectRetry').onclick=()=>{
+    const button=reconnect.querySelector('#reconnectRetry');button.disabled=true;
+    window.PhoneConnection?.retry();setTimeout(()=>button.disabled=false,1500);
+  };
+  reconnect.querySelector('#reconnectChange').onclick=()=>$('remoteChange').click();
   const motionBanner=document.createElement('aside');motionBanner.className='motion-banner';motionBanner.setAttribute('aria-label','Motion permission');
   motionBanner.dataset.state='needed';
   motionBanner.innerHTML='<span class="motion-symbol" aria-hidden="true"><i></i></span><div class="motion-copy"><strong id="motionTitle">Enable motion</strong><p id="motionHelp">Let your movement control the game.</p></div><button type="button" id="motionEnable" aria-label="Enable motion" aria-describedby="motionHelp">Enable</button>';
@@ -87,44 +116,46 @@
     if(hub){mountCarousel();}
     else if(!returningToGames){unmountCarousel();}
     const busy=!accepted||(m.clientId&&m.clientId!==app.id);
-    $('controlStatus').textContent=preview?'PREVIEW':busy?'SCREEN IN USE':'CONNECTED';
+    if(preview)$('controlStatus').textContent='PREVIEW';
     gallery.classList.toggle('is-disconnected',!hub||busy||(!link&&!preview));$('remotePlay').disabled=!selectedRemoteGame||!hub||busy||(!link&&!preview);
     if(busy)message('Another phone controls this screen. Disconnect it first, then reconnect here.');else if(!restoring)message('');
     if(returningToGames&&!hub){message('Returning to games on your PC…');if(isLive()&&!busy)command({t:'host-home'});}
     window.PhoneLive.update(m,{preview,allowOpen:!root.hidden&&!busy&&!returningToGames,onAction:gameAction});
     window.PhoneLive.connection(busy||(!link&&!preview));
+    renderConnection();
   }
   window.addEventListener('phone-host',e=>{
     if(preview)return;const m=e.detail;
     if(m.t==='pair-expired'){resetPairing(m.message);return;}
     if(m.t==='phone-replaced'){resetPairing('This phone is open in another tab. Continue there, or enter the code here to take control.',false);return;}
     if(!paired)return;
-    if(m.t==='phone-paired'){accepted=true;connectionIssue='';$('controlStatus').textContent='CONNECTING TO PC';return;}
-    if(m.t==='host-busy'&&m.clientId===app.id){accepted=false;connectionIssue='Another phone controls this PC. Use Change screen on that phone, or wait for it to disconnect.';gallery.hidden=true;$('controlConnect').hidden=false;$('controlStatus').textContent='SCREEN IN USE';message(connectionIssue);return;}
+    if(m.t==='phone-paired'){accepted=true;connectionIssue='';renderConnection();return;}
+    if(m.t==='host-busy'&&m.clientId===app.id){accepted=false;connectionIssue='This PC is in use. Disconnect the other phone or enter a different code.';gallery.hidden=true;$('controlConnect').hidden=false;message(connectionIssue);renderConnection();return;}
     if(!accepted)return;
     if(m.t==='host-state')renderHost(m);
     if(m.t==='session-history'&&m.userId===app.id)app.ingest(m.rows);
-    if(m.t==='host-warning')message(m.message);
+    if(m.t==='host-warning'){hostWarning=m.message;message('');}
   });
   setInterval(()=>{
     if(!paired||preview)return;
-    if(connectionIssue){message(connectionIssue);return;}
-    if(!link||Date.now()-lastHostAt>5500){window.PhoneLive.connection(true);$('controlStatus').textContent=localIssue?'LOCAL WI-FI REQUIRED':link?'WAITING FOR PC':'RECONNECTING';gallery.classList.add('is-disconnected');$('remotePlay').disabled=true;message(link?'Open the carousel or a game on your PC. Your saved activity is still available.':'Connection lost. Reconnecting automatically… Keep this page open.');}
-  },1500);
+    if(!isLive()){window.PhoneLive.connection(true);gallery.classList.add('is-disconnected');$('remotePlay').disabled=true;}
+    renderConnection();
+  },500);
 
   window.addEventListener('phone-local',e=>{
     localIssue=['blocked','unsupported'].includes(e.detail.status)?e.detail.message:'';
-    localRetry.hidden=!localIssue;
-    if(localIssue&&paired){$('controlStatus').textContent='LOCAL WI-FI REQUIRED';message(localIssue);}
+    renderConnection();
   });
-  const localRetry=document.createElement('button');localRetry.type='button';localRetry.className='control-secondary';localRetry.textContent='Retry local Wi-Fi';localRetry.hidden=true;
-  $('controlMessage').after(localRetry);localRetry.onclick=()=>window.PhoneConnection?.retry();
-  function message(s){$('controlMessage').textContent=localIssue||s;}
+  function message(s){
+    // Pairing/camera errors stay in the form. Transport retries have one steady modal.
+    const content=$('controlConnect').hidden?hostWarning:s;
+    text($('controlMessage'),content||'');$('controlMessage').hidden=!content;
+  }
   function stopCamera(){cameraVersion++;clearTimeout(scanTimer);stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;video.hidden=true;$('scanPlaceholder').hidden=false;$('scanStart').hidden=false;$('scanStart').disabled=false;$('scanStop').hidden=true;}
   function method(m){$('connectHint').textContent=m==='scan'?'Scan the QR code on your PC to start.':'Enter the code on your PC to start.';if(!preview)app.preference('connectionMethod',m);stopCamera();root.querySelectorAll('[data-method]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.method===m)));$('scanPanel').hidden=m!=='scan';$('codePanel').hidden=m!=='code';message('');}
-  function ready(code){paired=true;accepted=false;connectionIssue='';const cleanURL=new URL(location.href);cleanURL.searchParams.delete('connect');history.replaceState(history.state,'',cleanURL.href);app.save('inmotion.pair.v1',{code,origin:location.origin});window.dispatchEvent(new CustomEvent('phone-paired'));lastHostAt=Date.now();stopCamera();$('controlConnect').hidden=true;gallery.hidden=false;mountCarousel();$('controlStatus').textContent=link?'CONNECTING TO PC':'RECONNECTING';command({t:'carousel-sync'});message('');root.scrollTop=0;}
+  function ready(code){paired=true;accepted=false;connectionIssue='';localIssue='';notice.reset();const cleanURL=new URL(location.href);cleanURL.searchParams.delete('connect');history.replaceState(history.state,'',cleanURL.href);app.save('inmotion.pair.v1',{code,origin:location.origin});window.dispatchEvent(new CustomEvent('phone-paired'));lastHostAt=Date.now();stopCamera();$('controlConnect').hidden=true;gallery.hidden=false;mountCarousel();command({t:'carousel-sync'});message('');root.scrollTop=0;renderConnection();}
   function resetPairing(text='',forget=true){
-    pairVersion++;window.PhoneLive.clear();returningToGames=false;accepted=false;paired=false;host=null;connectionIssue='';
+    pairVersion++;window.PhoneLive.clear();returningToGames=false;accepted=false;paired=false;host=null;connectionIssue='';hostWarning='';localIssue='';notice.reset();reconnect.close();
     if(forget)app.save('inmotion.pair.v1',null);gallery.hidden=true;unmountCarousel();lastDesktopState=null;selectedRemoteGame=null;
     $('controlConnect').hidden=false;$('controlStatus').textContent='NOT CONNECTED';method('code');message(text);
   }
@@ -161,16 +192,26 @@
   root.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>method(b.dataset.method));
   $('pairCode').addEventListener('input',()=>{$('pairCode').value=$('pairCode').value.replace(/\D/g,'').slice(0,6);message('');});
   $('codePanel').onsubmit=e=>{e.preventDefault();pair($('pairCode').value);};
-  window.openController=()=>{app.show('controller',root);};
+  window.openController=()=>{
+    app.show('controller',root);
+    if(app.onboarded&&!preview)resumePairing();
+    renderConnection();
+  };
   $('controlBack').onclick=()=>{stopCamera();root.hidden=true;window.openActivity();};
   $('remoteChange').onclick=()=>{command({t:'phone-release',clientId:app.id});window.PhoneMotion?.stop();resetPairing();method('scan');};
 
-  window.addEventListener('phone-page',e=>{if(e.detail!=='controller')stopCamera();});
+  window.addEventListener('phone-page',e=>{if(e.detail!=='controller')stopCamera();renderConnection();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});addEventListener('pagehide',stopCamera);
-  window.addEventListener('phone-link',e=>{link=e.detail.connected;if(preview){if(liveBeforePreview)liveBeforePreview.link=link;return;}gallery.classList.toggle('is-disconnected',!link);if(paired&&!link){window.PhoneLive.connection(true);$('controlStatus').textContent='RECONNECTING';message('Connection lost. Check your connection and keep this page open.');}else if(paired){$('controlStatus').textContent='CONNECTING TO PC';command({t:'carousel-sync'});message('');}});
+  window.addEventListener('phone-link',e=>{link=e.detail.connected;if(preview){if(liveBeforePreview)liveBeforePreview.link=link;return;}gallery.classList.toggle('is-disconnected',!link);if(paired&&!link)window.PhoneLive.connection(true);else if(paired)command({t:'carousel-sync'});renderConnection();});
   method(app.preferences.connectionMethod==='code'?'code':'scan');
-  const code=new URLSearchParams(location.search).get('connect'),saved=app.read('inmotion.pair.v1',null);
-  if(code){window.openController();pair(code);}else if(saved?.code&&saved.origin===location.origin){restoring=true;pair(saved.code).finally(()=>{restoring=false;});}
+  // Keep the QR in the URL throughout welcome, guide and profile setup, including reloads.
+  // Startup and the final profile save are the only paths that resume pairing.
+  function resumePairing(){
+    if(!app.onboarded||paired||busy)return;
+    const code=new URLSearchParams(location.search).get('connect'),saved=app.read('inmotion.pair.v1',null);
+    if(code)pair(code);
+    else if(saved?.code&&saved.origin===location.origin){restoring=true;pair(saved.code).finally(()=>{restoring=false;});}
+  }
   window.ControllerDev={
     suspend(){if(!preview)liveBeforePreview={paired,host,link};preview=true;stopCamera();},
     show(kind){returningToGames=false;preview=true;paired=true;link=true;stopCamera();window.openController();setMotion({status:kind==='connect'?'needed':'ready',text:kind==='connect'?'Preview: enable motion before playing.':'Preview: motion is ready.'});

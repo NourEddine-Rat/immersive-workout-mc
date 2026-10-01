@@ -1,3 +1,4 @@
+import {returningPhone} from './phone-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -11,9 +12,9 @@ test('WebKit phone sends direct motion to Chrome across PC navigation and reconn
   const mobile=await webkit.launch({headless:true});
   try{
     const pc=await desktop.newPage(),phone=await mobile.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
-    const errors=[];
+    const errors=[];await returningPhone(phone);
     for(const page of [pc,phone]){
-      page.on('pageerror',error=>errors.push(error.message));
+      page.on('pageerror',error=>{errors.push(error.message);console.error(page===phone?'WebKit phone error:':'Chrome PC error:',error.stack);});
       await page.addInitScript(()=>{
         window.testPeers=[];
         const Original=RTCPeerConnection;
