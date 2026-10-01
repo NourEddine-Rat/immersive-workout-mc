@@ -2,7 +2,7 @@ import {uuid} from './lib/identity.js';
 import {localCandidate,localSDP,selectedLocalRoute,candidateInfo,hintedCandidate} from './lib/local-route.js';
 import './connection-diagnostics.js';
 
-const HELP='Connect both devices to the same Wi-Fi, allow Local Network access if asked, and avoid guest Wi-Fi or a VPN. Then retry.';
+const HELP='Connect both devices to the same Wi-Fi and avoid guest Wi-Fi or a VPN. If automatic discovery fails, use the PC Wi-Fi address in Connection help.';
 export class DirectLink {
   constructor({role,signal,addressHint='',onMessage=()=>{},onState=()=>{}}){
     this.role=role;this.signalOut=signal;this.onMessage=onMessage;this.onState=onState;

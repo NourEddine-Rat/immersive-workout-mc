@@ -260,13 +260,23 @@
 
 
             const remoteView = new URLSearchParams(location.search).get('controller') === '1';
-            let introAssetsReady = false;
+            let introAssetsReady = false, remoteAssetsFailed = false, remoteLogosReady = !remoteView;
             THREE.DefaultLoadingManager.onProgress = (_url, loaded, total) => window.galleryIntro?.progress(loaded / total);
             THREE.DefaultLoadingManager.onLoad = () => { introAssetsReady = true; };
+            if (remoteView) THREE.DefaultLoadingManager.onError = () => {
+                remoteAssetsFailed = true;
+                parent.postMessage({t: 'carousel-error'}, location.origin);
+            };
 
             const stage = document.querySelector('#stage'),
                 notice = document.querySelector('#notice');
             const gameLogos = [...document.querySelectorAll('.game-logo')];
+            if (remoteView) Promise.all(gameLogos.map(image => image.decode())).then(() => {
+                remoteLogosReady = true;
+            }).catch(() => {
+                remoteAssetsFailed = true;
+                parent.postMessage({t: 'carousel-error'}, location.origin);
+            });
 
             let noticeTimer;
 
@@ -1268,7 +1278,7 @@
                 }
 
                 // Share the same renderer and gesture physics with the phone controller.
-                let lastPublished = null, lastPublishTime = 0, remoteInitialized = !remoteView;
+                let lastPublished = null, lastPublishTime = 0, remoteInitialized = !remoteView, remotePresented = false;
                 function remoteSend(message) {
                     if (remoteView) parent.postMessage(message, location.origin);
                     else hostBridge.send(message);
@@ -1284,6 +1294,8 @@
                 function receiveRemote(m) {
                     if (!remoteView && (!hostBridge.active || (m.hostId && m.hostId !== hostBridge.id))) return;
                     if (m.t === 'carousel-state' && remoteView && Number.isFinite(m.position) && !drag) {
+                        // Start at the PC's selection, without scrolling through other games while loading.
+                        if (!remotePresented) position = m.position;
                         target = m.position; lastPublished = target; remoteInitialized = true; publishSelection();
                     }
                     if (!remoteView && m.t === 'carousel-move' && m.clientId === hostBridge.clientId && Number.isFinite(m.position)) {
@@ -1299,7 +1311,7 @@
                     addEventListener('message', e => {
                         if (e.origin === location.origin && e.source === parent) receiveRemote(e.data || {});
                     });
-                    parent.postMessage({t: 'carousel-loaded'}, location.origin);
+                    parent.postMessage({t: 'carousel-mounted'}, location.origin);
                 } else {
                     const offMessages=hostBridge.onMessage(receiveRemote);
                     const offConnection=hostBridge.onConnection(state=>{if(state.direct)publishSelection();});
@@ -1552,6 +1564,7 @@
                         renderer.render(scene, camera);
                         meterMaterial.uniforms.history.value = exposureRead.texture;
                         meterMaterial.uniforms.dt.value = dt;
+                        if (remoteView && !remotePresented) meterMaterial.uniforms.immediate.value = 1;
                         renderer.setRenderTarget(exposureWrite);
                         renderer.clear();
                         renderer.render(meterScene, environmentCamera);
@@ -1562,6 +1575,11 @@
                         renderer.clear();
                         renderer.render(lensScene, environmentCamera);
                         if (introAssetsReady) window.galleryIntro?.ready();
+                        // Module startup is too early: reveal only a fully rendered, synchronized scene.
+                        if (remoteView && !remotePresented && introAssetsReady && remoteLogosReady && remoteInitialized && !remoteAssetsFailed) {
+                            remotePresented = true;
+                            parent.postMessage({t: 'carousel-loaded'}, location.origin);
+                        }
                     }
                 }
 

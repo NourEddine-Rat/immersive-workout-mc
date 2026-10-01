@@ -13,17 +13,18 @@ import {connectionExplanation} from '../engine/lib/connection-explanation.js';
   // Form feedback belongs above the connection form, never below the carousel.
   root.querySelector('#controlConnect').before(root.querySelector('#controlMessage'));
   const gallery=document.createElement('div');gallery.id='controlGallery';gallery.hidden=true;
-  gallery.innerHTML=`<header class="remote-heading"><div><h1>Choose your game</h1><p>Play on the big screen.</p></div><button class="control-secondary" id="remoteChange" type="button" aria-label="Connect another screen">Change screen</button></header><div class="remote-gallery"><iframe title="Swipe to choose a game on your PC" id="remoteCarousel"></iframe></div><div class="remote-swipe"><span aria-hidden="true"></span><p>Swipe to explore · tap a card to choose</p></div><div class="remote-selection"><div class="remote-caption"><span>ON YOUR PC</span><strong id="remoteGame" aria-live="polite">Loading games…</strong></div><button class="remote-play" id="remotePlay" type="button" disabled hidden>Play <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg></button><button class="control-primary" id="remoteSense" type="button">Enable motion to play</button></div>`;
+  gallery.innerHTML=`<header class="remote-heading"><div><h1>Choose your game</h1><p>Play on the big screen.</p></div><button class="control-secondary" id="remoteChange" type="button" aria-label="Connect another screen">Change screen</button></header><div class="remote-gallery" data-state="loading" aria-busy="true"><iframe title="Swipe to choose a game on your PC" id="remoteCarousel" inert aria-hidden="true"></iframe><div class="remote-gallery-loading" role="status"><span aria-hidden="true"></span><strong>Loading games…</strong><p>Getting your gallery ready.</p></div></div><div class="remote-swipe"><span aria-hidden="true"></span><p>Swipe to explore · tap a card to choose</p></div><div class="remote-selection"><div class="remote-caption"><span>ON YOUR PC</span><strong id="remoteGame" aria-live="polite">Loading games…</strong></div><button class="remote-play" id="remotePlay" type="button" disabled hidden>Play <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg></button><button class="control-primary" id="remoteSense" type="button">Enable motion to play</button></div>`;
   root.querySelector('#controlConnect').after(gallery);
   const frame=gallery.querySelector('iframe');
   const carouselMount=gallery.querySelector('.remote-gallery');
   const fallback=document.createElement('div');fallback.className='remote-fallback';fallback.hidden=true;
-  fallback.innerHTML='<p>Choose a game</p>'+[['subway','Subway'],['redlight','Red Light Green Light'],['jumprope','Jump Rope'],['track','Track & Field']].map(([id,name])=>`<button type="button" class="control-secondary" data-game="${id}">${name}</button>`).join('');
+  fallback.innerHTML='<p>The preview couldn’t load. Choose a game to keep playing.</p>'+[['subway','Subway'],['redlight','Red Light Green Light'],['jumprope','Jump Rope'],['track','Track & Field']].map(([id,name])=>`<button type="button" class="control-secondary" data-game="${id}">${name}</button>`).join('');
   carouselMount.after(fallback);fallback.querySelectorAll('button').forEach(b=>b.onclick=()=>chooseGame(b.dataset.game));
   let fallbackTimer,localIssue='';
-  function showFallback(){fallback.hidden=false;carouselMount.hidden=true;}
-  function mountCarousel(){if(!frame.isConnected)carouselMount.append(frame);if(!frame.getAttribute('src')){fallback.hidden=true;carouselMount.hidden=false;frame.src='./index.html?controller=1';clearTimeout(fallbackTimer);fallbackTimer=setTimeout(showFallback,15000);}}
-  function unmountCarousel(){clearTimeout(fallbackTimer);fallback.hidden=true;frame.remove();frame.removeAttribute('src');}
+  function carouselState(state){carouselMount.dataset.state=state;carouselMount.setAttribute('aria-busy',String(state==='loading'));frame.inert=state!=='ready';frame.setAttribute('aria-hidden',String(state!=='ready'));carouselMount.querySelector('.remote-gallery-loading').hidden=state!=='loading';}
+  function showFallback(){carouselState('fallback');fallback.hidden=false;carouselMount.hidden=true;}
+  function mountCarousel(){if(!frame.isConnected)carouselMount.prepend(frame);if(!frame.getAttribute('src')){carouselState('loading');fallback.hidden=true;carouselMount.hidden=false;frame.src='./index.html?controller=1';clearTimeout(fallbackTimer);fallbackTimer=setTimeout(showFallback,15000);}}
+  function unmountCarousel(){clearTimeout(fallbackTimer);fallback.hidden=true;carouselState('loading');frame.remove();frame.removeAttribute('src');}
   const command=detail=>{if(!preview)window.dispatchEvent(new CustomEvent('phone-command',{detail:{...detail,hostId:host?.hostId}}));};
   let link=false,lastDesktopState=null,host=null,lastHostAt=0,restoring=false,preview=false,liveBeforePreview=null,returningToGames=false,accepted=false,connectionIssue='',hostWarning='',pairVersion=0;
   const isLive=()=>accepted&&link&&host&&host.clientId===app.id&&Date.now()-lastHostAt<5500&&!preview;
@@ -47,7 +48,8 @@ import {connectionExplanation} from '../engine/lib/connection-explanation.js';
     if(e.origin!==location.origin||e.source!==frame.contentWindow||!paired)return;
     const m=e.data||{};
     if(m.t==='carousel-error'){clearTimeout(fallbackTimer);showFallback();}
-    if(m.t==='carousel-loaded'){clearTimeout(fallbackTimer);fallback.hidden=true;carouselMount.hidden=false;if(preview)frame.contentWindow.postMessage({t:'carousel-state',position:0},location.origin);if(lastDesktopState)forwardState(lastDesktopState);command({t:'carousel-sync'});}
+    if(m.t==='carousel-mounted'){if(preview)frame.contentWindow.postMessage({t:'carousel-state',position:0},location.origin);if(lastDesktopState)forwardState(lastDesktopState);command({t:'carousel-sync'});}
+    if(m.t==='carousel-loaded'){clearTimeout(fallbackTimer);carouselState('ready');fallback.hidden=true;carouselMount.hidden=false;}
     if(m.t==='carousel-state'&&m.label){updateSelection(m);if(!preview)app.preference('selectedGame',m.label);}
     if(m.t==='carousel-pick')chooseGame(m.game);
     if(isLive()&&m.t==='carousel-move'&&!gallery.classList.contains('is-disconnected'))command(m);

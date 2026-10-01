@@ -21,7 +21,15 @@
   mask-image:linear-gradient(transparent,#000 7%,#000 83%,transparent);
   -webkit-mask-image:linear-gradient(transparent,#000 7%,#000 83%,transparent);
 }
-#controlGallery .remote-gallery iframe { display:block; width:100%; height:100%; border:0; }
+#controlGallery .remote-gallery iframe { display:block; width:100%; height:100%; border:0; transition:opacity .22s ease; }
+#controlGallery .remote-gallery:not([data-state=ready]) iframe { opacity:0; pointer-events:none; }
+.remote-gallery-loading { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:24px; background:#0b0b0e; text-align:center; }
+.remote-gallery-loading>span { width:27px; height:27px; margin-bottom:5px; border:2px solid #ffffff20; border-top-color:#e8e2f2; border-radius:50%; animation:remote-gallery-spin 1s linear infinite; }
+.remote-gallery-loading strong { font-size:14px; font-weight:500; letter-spacing:-.01em; color:#ebe6f1; }
+.remote-gallery-loading p { margin:0; font-size:11px; color:#9d98a6; }
+.remote-gallery:not([data-state=ready])~.remote-swipe { visibility:hidden; }
+@keyframes remote-gallery-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { #controlGallery .remote-gallery iframe { transition:none; } .remote-gallery-loading>span { animation:none; } }
 .remote-swipe { display:flex; align-items:center; justify-content:center; gap:8px; flex:none; margin:-4px 0 13px; pointer-events:none; }
 .remote-swipe>span { width:27px; height:27px; background:#c8c2d1; mask:url('./connect-icons/swipe.png') center/contain no-repeat; -webkit-mask:url('./connect-icons/swipe.png') center/contain no-repeat; }
 .remote-swipe p { margin:0; color:#aaa3b5; font-size:10px; line-height:1.3; }

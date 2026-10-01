@@ -6,7 +6,7 @@ export function connectionExplanation(state={}){
     case 'pairing':return 'Waiting for the PC to accept this phone. Keep the PC game page open.';
     case 'waiting-offer':return 'Phone paired. Waiting for the PC to start the local connection.';
     case 'waiting-answer':return 'PC offer sent. Waiting for the phone to answer. Keep Play open on the phone.';
-    case 'local-discovery':return 'Both devices exchanged connection details, but local Wi-Fi is not connected yet. Allow Local Network access on both devices. Try the PC Wi-Fi address in Connection help if discovery fails.';
+    case 'local-discovery':return 'Your phone found this PC, but the local Wi-Fi connection has not opened yet. On the PC, open Connection help and try its Wi-Fi address. Keep both devices on the same network.';
     case 'route-verification':return 'The devices reached each other. Checking that their selected connection stays local.';
     case 'peer-verification':return 'Local route checked. Waiting for the other device to confirm its route.';
     case 'opening-channels':return 'Local route confirmed. Opening the motion and controls channels.';
