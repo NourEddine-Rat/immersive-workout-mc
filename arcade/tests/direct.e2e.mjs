@@ -164,8 +164,9 @@ test('a private PC address recovers blocked mDNS discovery in WebKit and survive
   }
   assert.equal(await phone.evaluate(()=>PhoneConnection.status.route.allowed),true);
   await pc.goto(s.base+'/training/',{waitUntil:'domcontentloaded'});
-  await pc.waitForFunction(async()=>(await import('/engine/host-bridge.js')).hostBridge.connection.direct,{},{timeout:20000});
-  assert.equal(await pc.evaluate(async()=>(await import('/engine/host-bridge.js')).hostBridge.localAddress),address);
+  await pc.evaluate(async()=>{window.addressTestBridge=(await import('/engine/host-bridge.js')).hostBridge;});
+  await pc.waitForFunction(()=>addressTestBridge.connection.direct&&['connected','completed'].includes(testPCs.at(-1)?.iceConnectionState),{},{timeout:20000});
+  assert.equal(await pc.evaluate(()=>addressTestBridge.localAddress),address);
   assert.deepEqual(await pc.evaluate(()=>testPCs.at(-1).getConfiguration().iceServers),[]);
  }finally{await mobile.close();await desktop.close();await s.close();}
 });
