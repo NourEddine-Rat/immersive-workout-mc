@@ -1,0 +1,139 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "bake_lite.py",
+  "extras": {
+   "note": "baked from subway_surfers.gltf by bake_lite.py: the mesh in game space, re-unwrapped, with a texture painted from its own silhouette",
+   "source": "Sketchfab, \"subway surfers\" headstart token"
+  }
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "fire"
+  }
+ ],
+ "meshes": [
+  {
+   "name": "fire",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3,
+     "material": 0,
+     "mode": 4
+    }
+   ]
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 938,
+   "type": "VEC3",
+   "min": [
+    -0.47831260259983965,
+    -0.8,
+    -0.065
+   ],
+   "max": [
+    0.47831260259983965,
+    0.8,
+    0.065
+   ]
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 938,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5126,
+   "count": 938,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 0,
+   "componentType": 5123,
+   "count": 2388,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 4776,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 4776,
+   "byteLength": 11256,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 16032,
+   "byteLength": 11256,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 27288,
+   "byteLength": 7504,
+   "target": 34962
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 34792,
+   "uri": "fire.lite.bin"
+  }
+ ],
+ "materials": [
+  {
+   "name": "fire",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 0
+    },
+    "metallicFactor": 0.0
+   }
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  }
+ ],
+ "images": [
+  {
+   "uri": "fire.lite.png"
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987,
+   "wrapS": 33071,
+   "wrapT": 33071
+  }
+ ]
+}

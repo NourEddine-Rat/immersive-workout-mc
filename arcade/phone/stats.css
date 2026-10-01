@@ -1,0 +1,64 @@
+/* Activity screen: blue chart above a white sheet, inspired by the supplied reference. */
+.activity { position: fixed; inset: 0; z-index: 40; overflow-y: auto; background: linear-gradient(165deg,#2c1ef0 15%,#4041ec 74%,#3021ef); color: white; font-family: var(--sans); }
+.activity-inner { width: min(100%, 520px); min-height: 100dvh; margin: auto; padding: max(24px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+.activity-head { padding: 8px 12px 0; display: flex; justify-content: space-between; align-items: center; }
+.activity-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: #c1bdff; margin-bottom: 7px; }
+.activity-head strong { font-size: 23px; letter-spacing: -.04em; }
+.activity-head p { margin: 3px 0 0; color: #b0aaff; font-size: 12px; }
+.activity-badge { width: 51px; height: 34px; display: grid; place-items: center; border: 1px solid #ffffff55; border-radius: 30px; background: #ffffff0d; box-shadow: inset 0 1px 0 #ffffff30; }
+.activity-badge svg { width: 19px; height: 19px; fill: white; }
+.activity-chart { flex: 1; min-height: 270px; position: relative; margin: 18px 10px 12px; display: flex; gap: 12px; }
+.chart-scale { width: 30px; display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 27px; color: #aaa5ff; font-size: 10px; }
+.chart-columns { flex: 1; display: grid; grid-template-columns: repeat(7,1fr); gap: 11px; }
+.chart-column { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
+.chart-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.chart-bar { position: relative; z-index: 1; width: min(100%,30px); min-height: 2px; height: var(--height); border-radius: 99px; background: #889dff99; transition: height .4s ease; }
+.chart-column.is-selected .chart-bar { background: #fff; }
+.chart-column span { margin-top: 13px; font-size: 10px; color: #b7b2ff; }
+.chart-empty { position: absolute; left: 45px; right: 10px; top: 42%; text-align: center; color: #d3d0ff; font-size: 13px; line-height: 1.6; }
+.activity-sheet { background: #fefeff; color: #121215; border-radius: 40px; padding: 22px 20px 17px; box-shadow: 0 -1px 0 #ffffff50; }
+.sheet-top { display: flex; justify-content: space-between; align-items: center; }
+.sheet-brand { font-family: Anton,Impact,sans-serif; font-size: 23px; letter-spacing: -.03em; }
+.activity-periods { display: flex; background: #f0eff6; border-radius: 30px; padding: 3px; gap: 2px; }
+.activity-periods button { margin: 0; border: 0; width: 33px; height: 29px; padding: 0; color: #24232d; font-size: 11px; font-weight: 600; }
+.activity-periods button[aria-pressed=true] { background: #fff; box-shadow: 0 1px 5px #27203b09; }
+.activity-periods button:disabled { opacity: .35; cursor: default; }
+.activity-total { margin: 23px 0 4px; font-size: clamp(54px,16vw,76px); font-weight: 700; line-height: 1; letter-spacing: -.075em; font-variant-numeric: tabular-nums; }
+.activity-label { font-size: 17px; margin: 11px 0 27px; font-weight: 500; }
+.activity-metrics { display: grid; grid-template-columns: 1.2fr 1.2fr .8fr; gap: 10px; }
+.activity-metrics strong { font-size: clamp(23px,7vw,32px); font-weight: 700; letter-spacing: -.06em; white-space: nowrap; }
+.activity-metrics small { font-size: 15px; letter-spacing: -.02em; margin-left: 2px; }
+.activity-metrics p { margin: 6px 0 0; color: #99979e; font-size: 12px; }
+.activity-nav { display: flex; gap: 3px; align-items: center; padding: 5px; margin: 24px 0 0; min-height: 65px; border-radius: 99px; border: 1px solid #fff; background: linear-gradient(130deg,#ffffffc9,#f4f2fb8c); box-shadow: inset 0 1px 2px #fff,0 7px 26px #6753ae1c; backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); }
+.activity-nav button { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; width: auto; height: 53px; margin: 0; padding: 0; border: 0; color: #17161b; background: none; }
+.activity-nav button[aria-current=page] { flex: 1.8; background: #dfdee8b3; box-shadow: inset 0 1px 1px #fff8; }
+.activity-nav svg { width: 25px; height: 25px; fill: currentColor; }
+.activity-nav span { font-size: 13px; font-weight: 600; }
+.activity button:focus-visible { outline: 2px solid #8b80ff; outline-offset: 3px; }
+.activity-notice { position: fixed; bottom: 115px; left: 50%; transform: translateX(-50%); padding: 12px 18px; width: max-content; max-width: 85vw; border-radius: 20px; background: #171329e8; color: white; font-size: 12px; text-align: center; z-index: 45; }
+@media (min-height: 800px) { .activity-chart { min-height: 330px; } .activity-sheet { padding-top: 24px; padding-bottom: 20px; } .activity-label { margin-bottom: 32px; } }
+@media (prefers-reduced-motion: reduce) { .chart-bar { transition: none; } }
+
+.activity-back { width: auto; margin: 0 0 14px; padding: 8px 14px; font-size: 12px; }
+.activity-badge { width:auto; min-width:112px; gap:6px; display:flex; padding:0 10px; margin:0; color:white; font-size:10px; font-weight:600; white-space:nowrap; }
+.activity-badge svg { width:15px; height:15px; }
+
+/* Quiet grid and labeled axes behind the activity bars. */
+.activity-chart { margin-top: 34px; margin-bottom: 30px; }
+.chart-columns { position: relative; isolation: isolate; }
+.chart-columns::before { content: ""; position: absolute; z-index: -1; pointer-events: none; inset: 0 0 27px;
+  background-image: linear-gradient(to bottom, rgba(225, 228, 255, .12) 1px, transparent 1px);
+  background-size: 100% 11.111%; }
+.chart-axis-y,.chart-axis-x { position: absolute; font-size: 10px; font-weight: 500; color: #cbc8ff; }
+.chart-axis-y { top: -19px; left: 0; }
+.chart-axis-x { right: 0; bottom: -19px; }
+
+/* Keep step bars in front of the calories trend at their intersections. */
+.chart-columns::before { display: none; }
+.activity-chart { margin-right: 36px; }
+.calorie-trend { position: absolute; z-index: 0; inset: 0 0 27px; width: 100%; height: calc(100% - 27px); pointer-events: none; overflow: visible; filter: drop-shadow(0 1px 3px rgba(13,20,65,.25)); }
+.chart-calorie-label { position: absolute; right: -25px; top: -19px; display: flex; align-items: center; gap: 5px; font-size: 10px; color: #bdf7e8; }
+.chart-calorie-label i { width: 13px; height: 2px; background: #a8f5df; border-radius: 3px; }
+.chart-calorie-scale { position: absolute; top: 0; bottom: 27px; right: -31px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #b5ebdf; }
+
+.activity-badge .detail-flame { width: 14px; height: 18px; object-fit: contain; display: block; }

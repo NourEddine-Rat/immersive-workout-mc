@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Track &amp; Field · Squid Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="../common/squid.css">
+<script type="importmap">{ "imports": { "three": "../../../engine/three/three.module.js" } }</script>
+<script>
+// The boot check (subway's, trimmed): plain JavaScript, so a browser that
+// cannot run the game says why instead of sitting on "loading". Diagnostics stay local.
+(function () {
+  function log(line) { if (window.console && console.debug) console.debug(line); }
+  window.__log = log;
+  log('page ' + location.pathname + location.search + ' | ' + navigator.userAgent);
+  function el(id) { return document.getElementById(id); }
+  var boot = window.__boot = {
+    checks: [], errors: [], ok: true,
+    check: function (name, pass, fix) { this.checks.push({ name: name, pass: !!pass, fix: fix }); if (!pass) this.ok = false; },
+    render: function () { var h = ''; for (var i = 0; i < this.checks.length; i++) { var c = this.checks[i]; h += '<div class="chk ' + (c.pass ? 'ok' : 'no') + '">' + (c.pass ? '✓' : '✗') + ' ' + c.name + (c.pass ? '' : ' — ' + c.fix) + '</div>'; } for (var j = 0; j < this.errors.length; j++) h += '<div class="chk no">✗ ' + this.errors[j] + '</div>'; var b = el('bootBox'); if (b) b.innerHTML = h; },
+    progress: function (what, done, total) { var pct = total ? Math.round(100 * done / total) : 0; var bar = el('bootBar'); if (bar) bar.style.width = pct + '%'; var t = el('bootText'); if (t) t.textContent = 'downloading ' + what + ' · ' + (done / 1048576).toFixed(1) + (total ? ' of ' + (total / 1048576).toFixed(1) : '') + ' MB'; },
+    step: function (text) { var t = el('bootText'); if (t) t.textContent = text; log('step ' + text); },
+    fail: function (text) { this.ok = false; if (this.errors.length < 4) this.errors.push(text); log('FAIL ' + text); this.render(); var t = el('bootText'); if (t) t.textContent = 'The game hit an error — the red line above says where.'; }
+  };
+  window.addEventListener('DOMContentLoaded', function () {
+    var gl = null; try { var c = document.createElement('canvas'); gl = c.getContext('webgl2') || c.getContext('webgl'); } catch (e) {}
+    boot.check('WebGL', !!gl, 'no 3D graphics in this browser');
+    boot.check('modern browser', 'noModule' in document.createElement('script'), 'this game needs a recent Chrome, Safari or Edge');
+    boot.render();
+  });
+  window.addEventListener('error', function (e) { var where = e.filename ? ' (' + String(e.filename).replace(/^.*\//, '') + ':' + e.lineno + ')' : ''; log('error ' + (e.message || e.error) + where); if (!window.__gameUp) boot.fail('The game could not start: ' + (e.message || e.error) + where); });
+  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; log('rejection ' + (r && r.message || r)); if (!window.__gameUp) boot.fail('The game could not start: ' + (r && r.message || r)); });
+})();
+</script>
+</head>
+<body class="menu track">
+<canvas id="splat"></canvas>
+<div id="vignette"></div>
+<div id="flash"></div>
+
+<div class="hud" id="topLeft">
+  <div id="badge"><span class="num">4</span><span class="lbl">LANE<br>YOU</span></div>
+  <div id="left">PLACE <b id="placeN">1/6</b></div>
+  <div id="left2">HURDLES <b id="hurdlesN">0/10</b></div>
+  <div id="feed" class="track"></div>
+</div>
+
+<div class="hud" id="topCenter">
+  <div id="lightRow"><span id="light" class="rope"></span><span id="lightWord" class="rope">400 M HURDLES</span></div>
+  <div id="track"><div class="lab"><b id="toGo">60</b><span>m to go</span></div><div class="bar"><div class="fill" id="trackFill"></div><div class="ticks"></div><div class="rivals" id="rivals"></div><div class="finish"></div><div class="me" id="trackMe"><i>YOU</i></div></div><div class="lab line"><span>FINISH</span></div></div>
+</div>
+
+<div class="hud" id="topRight">
+  <div id="clock">0:00.0</div>
+  <canvas id="pose" width="304" height="124"></canvas>
+  <div id="stats"><span id="dist">0 m</span><span id="kcal"><i class="fl"></i><span id="kcalN">0</span> kcal</span></div>
+  <div id="who"><span id="whoText">no profile yet</span><label><input id="kgIn" type="number" min="30" max="200" step="1">kg</label><button id="newProfile">new</button></div>
+</div>
+
+<div class="hud" id="callout">GREEN LIGHT</div>
+<div id="win" hidden>
+  <div class="burst" id="winBurst"></div>
+  <svg class="winMedal" viewBox="0 0 120 120"><path d="M38 4 L60 44 L82 4" fill="none" stroke="#ff7a1a" stroke-width="10" stroke-linejoin="round"/><circle cx="60" cy="74" r="36" fill="#ffc83a" stroke="#fff3c4" stroke-width="5"/><circle cx="60" cy="74" r="24" fill="none" stroke="#c98a10" stroke-width="3"/><path d="M60 58 l5 10 11 1.5 -8 7.5 2 11 -10 -5.5 -10 5.5 2 -11 -8 -7.5 11 -1.5 z" fill="#c98a10"/></svg>
+  <div class="winKicker" id="winKicker">LANE 4</div>
+  <div class="winBand"><div class="winTitle" id="winTitle">FINISHED</div></div>
+  <div class="winSub" id="winSub">—</div>
+</div>
+<div class="hud" id="tip"></div>
+<div class="hud" id="hint" hidden><div id="hintArrow">▲</div><div id="hintText">JUMP!</div></div>
+<div class="hud" id="meter"><div class="lbl" id="meterLbl">HOLD STILL</div><div class="bar"><i id="meterBar"></i></div></div>
+
+
+
+<div id="dev" hidden></div>
+<div id="overlay"><div class="card"><h1 id="overlayTitle">LOADING</h1><div id="overlayText"><div id="bootBox"></div><div id="bootTrack"><div id="bootBar"></div></div><div id="bootText">checking the browser…</div></div><div class="btns" id="overlayBtns" hidden></div></div></div>
+<div id="credit">Stadium: "Track &amp; Field" (source to be credited) · Trees: <a href="https://polyhaven.com/models/nature" target="_blank">Poly Haven</a> (CC0) · Players: <a href="https://sketchfab.com/3d-models/squid-game-player-rig-version-616190e0b99544b5bf92b76354910355" target="_blank">Luxor</a> (CC-BY) · Arms: <a href="https://sketchfab.com/3d-models/free-gameready-fps-female-arms-007f5dd998ad4376943ed6fb3dfa2e15" target="_blank">BAMEN</a> (CC-BY)</div>
+
+<script type="module" src="./game.js"></script>
+</body>
+</html>

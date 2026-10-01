@@ -1,0 +1,11 @@
+Model Information:
+* title:	Sub Way Surf Assets
+* source:	https://sketchfab.com/3d-models/sub-way-surf-assets-e435b57e2d7f459182b4af0fc3e38540
+* author:	Giovanni Messina (https://sketchfab.com/giovannimessina)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Sub Way Surf Assets" (https://sketchfab.com/3d-models/sub-way-surf-assets-e435b57e2d7f459182b4af0fc3e38540) by Giovanni Messina (https://sketchfab.com/giovannimessina) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

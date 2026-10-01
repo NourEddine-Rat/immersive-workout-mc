@@ -1,0 +1,11 @@
+Model Information:
+* title:	Subway Surfers Dog
+* source:	https://sketchfab.com/3d-models/subway-surfers-dog-e39f32904e1d474ab99d0a301bc37537
+* author:	Rajio123 (https://sketchfab.com/Rajio123)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Subway Surfers Dog" (https://sketchfab.com/3d-models/subway-surfers-dog-e39f32904e1d474ab99d0a301bc37537) by Rajio123 (https://sketchfab.com/Rajio123) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -1,0 +1,62 @@
+/* Let the real 3D scene fill the connected screen, without a framed preview box. */
+.control-screen:has(#controlGallery:not([hidden])) { background:#0b0b0e; }
+.control-screen:has(#controlGallery:not([hidden])) .control-inner {
+  display:flex; flex-direction:column; height:100dvh; min-height:650px;
+  padding-bottom:calc(var(--phone-nav-space) + 8px);
+}
+.control-inner:has(#controlGallery:not([hidden]))>.control-head { flex:none; }
+.control-inner:has(#controlGallery:not([hidden]))>.motion-banner { flex:none; margin:10px 0 0; padding:10px 12px; border-radius:21px; background:linear-gradient(120deg,#ffffff13,#ffffff05); }
+.control-inner:has(#controlGallery:not([hidden]))>.motion-banner[data-state=ready] .motion-copy p { display:none; }
+.control-inner:has(#controlGallery:not([hidden]))>.motion-banner[data-state=ready] { border-color:#ffffff26; }
+.control-inner:has(#controlGallery:not([hidden]))>.motion-banner[data-state=ready] .motion-symbol { color:#bde6d0; }
+.control-inner:has(#controlGallery:not([hidden]))>.motion-banner[data-state=ready] button { color:#c4c0cc; border-color:#ffffff22; background:#ffffff08; box-shadow:inset 0 1px 0 #ffffff18; min-height:36px; font-size:11px; }
+#controlGallery { display:flex; flex-direction:column; flex:1; min-height:0; padding:0; }
+.remote-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:19px 2px 0; flex:none; }
+#controlGallery .remote-heading h1 { margin:0; font-size:24px; line-height:1.2; letter-spacing:-.045em; text-align:left; }
+.remote-heading p { margin:6px 0 0; font-size:11px; line-height:1.4; color:#9d98a6; }
+#controlGallery #remoteChange { flex:none; width:auto; min-height:38px; margin:0; padding:9px 11px; border:1px solid #ffffff22; border-radius:14px; color:#c7c2ce; background:linear-gradient(145deg,#ffffff0d,#ffffff04); font:500 10px/1.3 -apple-system,BlinkMacSystemFont,sans-serif; }
+#controlGallery .remote-gallery {
+  position:relative; flex:1; min-height:240px; height:auto; margin:5px calc(-1 * var(--phone-gutter)) 0;
+  overflow:hidden; border:0; border-radius:0; background:#0b0b0e;
+  mask-image:linear-gradient(transparent,#000 7%,#000 83%,transparent);
+  -webkit-mask-image:linear-gradient(transparent,#000 7%,#000 83%,transparent);
+}
+#controlGallery .remote-gallery iframe { display:block; width:100%; height:100%; border:0; }
+.remote-swipe { display:flex; align-items:center; justify-content:center; gap:8px; flex:none; margin:-4px 0 13px; pointer-events:none; }
+.remote-swipe>span { width:27px; height:27px; background:#c8c2d1; mask:url('./connect-icons/swipe.png') center/contain no-repeat; -webkit-mask:url('./connect-icons/swipe.png') center/contain no-repeat; }
+.remote-swipe p { margin:0; color:#aaa3b5; font-size:10px; line-height:1.3; }
+.remote-selection {
+  display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; flex:none;
+  padding:16px; border:1px solid #ffffff38; border-radius:24px;
+  background:linear-gradient(130deg,#ffffff19,#ffffff06),#19161f70;
+  box-shadow:inset 0 1px 0 #ffffff3d,0 8px 24px #0002;
+  backdrop-filter:blur(24px) saturate(1.3); -webkit-backdrop-filter:blur(24px) saturate(1.3);
+}
+#controlGallery .remote-caption { display:flex; flex-direction:column; align-items:flex-start; padding:0; gap:6px; min-width:0; }
+#controlGallery .remote-caption>span { font-size:8px; color:#a39aad; letter-spacing:.13em; }
+#controlGallery .remote-caption strong { font-size:19px; font-weight:600; line-height:1.2; letter-spacing:-.03em; color:#f2eff6; overflow-wrap:anywhere; }
+.remote-play { display:flex; align-items:center; justify-content:center; gap:7px; width:auto; min-width:83px; min-height:46px; padding:11px 14px; margin:0; border:1px solid #ffffffc0; border-radius:16px; background:linear-gradient(135deg,#fff,#e8e4ef); color:#342b44; box-shadow:inset 0 1px 0 #fff,0 3px 10px #0002; font:600 13px/1.3 -apple-system,BlinkMacSystemFont,sans-serif; }
+.remote-play svg { width:15px; height:15px; fill:currentColor; }
+.remote-play:disabled { opacity:.4; cursor:default; }
+#controlGallery #remoteSense { grid-column:1/-1; min-height:44px; margin:0; padding:11px; border-radius:15px; background:linear-gradient(135deg,#fff,#e8e4ef); color:#342b44; font:600 12px/1.3 -apple-system,BlinkMacSystemFont,sans-serif; }
+.control-inner:has(#controlGallery:not([hidden]))>.control-footer { display:none; }
+.control-inner:has(#controlGallery:not([hidden]))>.control-message { flex:none; margin:10px 0 0; }
+#controlGallery.is-disconnected .remote-play { opacity:.4; pointer-events:none; }
+@media(max-width:360px) {
+  #controlGallery .remote-heading h1 { font-size:21px; }
+  #controlGallery #remoteChange { padding:8px; font-size:9px; }
+  .remote-selection { padding:13px; gap:10px; }
+  #controlGallery .remote-caption strong { font-size:17px; }
+  .remote-play { min-width:73px; padding:10px; }
+}
+@media(max-height:680px) {
+  .control-screen:has(#controlGallery:not([hidden])) .control-inner { min-height:590px; }
+  .remote-heading { padding-top:12px; }
+  #controlGallery .remote-gallery { min-height:210px; }
+  .remote-swipe { margin-bottom:9px; }
+  .remote-selection { padding:12px 14px; }
+}
+@media(prefers-reduced-transparency:reduce) { .remote-selection { background:#27242d; backdrop-filter:none; -webkit-backdrop-filter:none; } }
+
+.remote-fallback { padding:20px var(--phone-gutter,20px); }
+.remote-fallback button { display:block; width:100%; margin:10px 0; min-height:48px; }

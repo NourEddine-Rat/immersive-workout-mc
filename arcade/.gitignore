@@ -1,0 +1,5 @@
+node_modules/
+.certs/
+__pycache__/
+test-results/
+logs/shot-*.jpg

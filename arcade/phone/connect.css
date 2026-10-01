@@ -1,0 +1,112 @@
+/* The welcome screen’s shared mood colors add a restrained glow to black glass. */
+.control-screen { --connect-accent:color-mix(in srgb,var(--c1) 30%,white); --connect-soft:color-mix(in srgb,var(--c1) 7%,white); }
+.control-screen:has(#controlConnect:not([hidden])) {
+  background:radial-gradient(ellipse at 15% -5%,color-mix(in srgb,var(--c1) 24%,transparent),transparent 60%),radial-gradient(ellipse at 100% 40%,color-mix(in srgb,var(--c2) 7%,transparent),transparent 65%),#0b0b0e;
+}
+.control-inner { font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif; }
+.control-head { gap:8px; }
+.control-head>span { font-size:18px; letter-spacing:-.025em; }
+.control-head small { font-size:8px; letter-spacing:.07em; color:#d5d3d8; background:#ffffff08; border-color:#ffffff24; }
+.control-head>button { font-size:28px; color:#eeecef; }
+.control-inner>.motion-banner {
+  display:grid; grid-template-columns:36px minmax(0,1fr) auto; gap:11px; align-items:center;
+  padding:14px; margin:14px 0 0; border:1px solid #ffffff38; border-radius:23px;
+  background:linear-gradient(120deg,#ffffff1f,#ffffff05 75%),#ffffff05;
+  box-shadow:inset 0 1px 0 #ffffff50,inset 0 -1px 0 #ffffff0d,0 8px 24px #00000014;
+  backdrop-filter:blur(24px) saturate(1.6); -webkit-backdrop-filter:blur(24px) saturate(1.6);
+}
+.motion-symbol { display:grid; place-items:center; width:36px; height:40px; color:var(--connect-accent); }
+.motion-symbol i { width:30px; height:30px; background:currentColor; mask:url("./connect-icons/motion.png") center/contain no-repeat; -webkit-mask:url("./connect-icons/motion.png") center/contain no-repeat; }
+.motion-copy { min-width:0; }
+.control-inner>.motion-banner strong { display:block; color:#faf9fb; font-size:13px; line-height:1.3; font-weight:600; letter-spacing:-.015em; }
+.control-inner>.motion-banner p { margin:4px 0 0; color:#bbb7c0; font-size:11px; line-height:1.4; }
+.control-inner>.motion-banner button {
+  grid-column:3; grid-row:1; width:auto; min-width:68px; min-height:44px; margin:0; padding:9px 12px;
+  border:1px solid #ffffff60; border-radius:15px; background:linear-gradient(145deg,#ffffffee,var(--connect-soft));
+  box-shadow:inset 0 1px 0 #fff,0 3px 8px #00000020; color:#302c33; font-family:inherit; font-size:12px; font-weight:600; line-height:1.2;
+}
+.control-inner>.motion-banner button:disabled { opacity:.65; cursor:wait; }
+.control-inner>.motion-banner[data-state=ready] { background:linear-gradient(120deg,#a4ffcb16,#ffffff05),#97d9c808; border-color:#b9ffe338; }
+.motion-banner[data-state=ready] .motion-symbol,.control-inner>.motion-banner[data-state=ready] strong { color:#c2f6dc; }
+.control-inner>.motion-banner[data-state=denied],.control-inner>.motion-banner[data-state=unavailable] { border-color:#ffc3a64d; }
+.motion-banner[data-state=denied] .motion-symbol,.motion-banner[data-state=unavailable] .motion-symbol { color:#ffd4bb; }
+#controlConnect .connect-hero { display:flex; flex-direction:column; align-items:center; gap:15px; padding:25px 0 22px; text-align:center; }
+.connect-device { display:grid; place-items:center; flex:none; width:70px; height:70px; border-radius:24px; border:1px solid #ffffff40; background:linear-gradient(145deg,#ffffff22,#ffffff05); box-shadow:inset 0 1px 0 #ffffff60,0 8px 30px #00000035; }
+.connect-device img { width:43px; height:43px; filter:brightness(0) invert(1); opacity:.94; }
+#controlConnect h1 { margin:0 0 8px; font:650 28px/1.15 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif; letter-spacing:-.045em; }
+#controlConnect .control-intro { margin:0; color:#aaa6b0; font-size:12px; line-height:1.4; max-width:none; }
+#controlConnect .control-methods { padding:4px; margin:0 0 14px; border:1px solid #ffffff2d; border-radius:19px; background:#ffffff09; box-shadow:inset 0 1px 0 #ffffff13; backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+#controlConnect .control-methods button { flex:1; min-height:42px; padding:9px; color:#bcb8c1; font:600 12px/1.3 -apple-system,BlinkMacSystemFont,sans-serif; border-radius:14px; }
+#controlConnect .control-methods button[aria-pressed=true] { color:#f7f6f8; border:1px solid #ffffff45; background:linear-gradient(145deg,#ffffff25,#ffffff10); box-shadow:inset 0 1px 0 #ffffff35,0 2px 8px #0002; }
+#controlConnect .connect-card { padding:15px; border:1px solid #ffffff32; border-radius:27px; background:linear-gradient(145deg,#ffffff13,#ffffff04); box-shadow:inset 0 1px 0 #ffffff28,0 12px 35px #00000018; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+#controlConnect .scanner-frame { min-height:148px; border-radius:18px; background:radial-gradient(ellipse,#ffffff08,transparent 70%),#00000030; border:1px solid #ffffff0c; }
+#controlConnect #scanPlaceholder { display:flex; flex-direction:column; gap:12px; padding:17px 10px; }
+#controlConnect .connect-scan-icon { display:block; width:58px; height:48px; background:var(--connect-accent); mask:url("./connect-icons/scan.png") center/contain no-repeat; -webkit-mask:url("./connect-icons/scan.png") center/contain no-repeat; }
+#controlConnect #scanPlaceholder p { margin:0; text-align:center; font-size:13px; font-weight:500; line-height:1.4; color:#e7e4eb; }
+#scanPlaceholder p span { display:block; margin-top:3px; color:#a49faa; font-size:11px; font-weight:400; }
+#controlConnect #scanVideo { display:block; height:190px; object-fit:cover; }
+#controlConnect .control-primary { display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; margin:13px 0 0; padding:12px; border:1px solid #ffffffc0; border-radius:16px; background:linear-gradient(145deg,#fff,var(--connect-soft)); box-shadow:inset 0 1px 0 #fff,0 4px 10px #0002; color:#302c33; font:600 13px/1.3 -apple-system,BlinkMacSystemFont,sans-serif; }
+.connect-camera-icon { display:block; width:20px; height:20px; background:currentColor; mask:url("./connect-icons/camera.png") center/contain no-repeat; -webkit-mask:url("./connect-icons/camera.png") center/contain no-repeat; }
+#controlConnect #codePanel { padding:24px 18px 18px; }
+#controlConnect .pair-code-label { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 2px 14px; }
+#controlConnect #codePanel label { margin:0; text-align:left; color:#e5e2e9; font-size:12px; font-weight:500; }
+.pair-code-label>span { color:#9f99a7; font-size:10px; letter-spacing:.02em; }
+.pair-code-field { position:relative; border:1px solid #ffffff30; border-radius:20px; overflow:hidden; background:linear-gradient(145deg,#ffffff0f,#ffffff02),#08080c50; box-shadow:inset 0 1px 0 #ffffff15,inset 0 2px 10px #00000015; transition:border-color .18s ease,box-shadow .18s ease; }
+.pair-code-field::after { content:""; position:absolute; height:1px; top:0; left:15%; right:15%; background:linear-gradient(90deg,transparent,#ffffff40,transparent); pointer-events:none; }
+#controlConnect #pairCode {
+  display:block; width:100%; height:78px; margin:0; padding:0 0 0 .36em;
+  border:0; border-radius:inherit; background:transparent; color:#f7f5fa; outline:none; box-shadow:none;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  font-size:34px; font-weight:400; line-height:1; letter-spacing:.36em;
+  font-variant-numeric:tabular-nums lining-nums; font-feature-settings:"tnum" 1,"lnum" 1,"zero" 0;
+  caret-color:var(--connect-accent); text-align:center;
+}
+#controlConnect #pairCode::placeholder { color:#78737f; opacity:1; font-weight:300; }
+#controlConnect #pairCode:focus { border:0; box-shadow:none; }
+.pair-code-field:focus-within { border-color:var(--connect-accent); box-shadow:0 0 0 3px #ffffff09,inset 0 1px 0 #ffffff22; }
+#controlConnect #pairCode::selection { background:#ffffff30; color:white; }
+#controlConnect #codePanel>p { color:#a9a2b0; margin:13px 0 18px; font-size:11px; }
+#controlConnect .control-wifi { display:flex; align-items:center; justify-content:center; gap:7px; margin:16px 0 0; color:#a5a0ac; font-size:10px; }
+.control-wifi svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; }
+.control-inner:has(#controlConnect:not([hidden]))>.control-footer { display:none; }
+.control-message:not(:empty) { padding:12px; border:1px solid #ffffff20; border-radius:15px; background:#ffffff08; font-size:12px; }
+@media(max-height:760px) {
+  #controlConnect .connect-hero { flex-direction:row; justify-content:center; text-align:left; gap:14px; padding:21px 0; }
+  .connect-device { width:58px; height:58px; border-radius:20px; }
+  .connect-device img { width:35px; height:35px; }
+  #controlConnect h1 { font-size:23px; text-align:left; margin-bottom:6px; }
+  #controlConnect .control-intro { text-align:left; font-size:11px; }
+  #controlConnect .scanner-frame { min-height:120px; }
+  #controlConnect #scanPlaceholder { gap:8px; padding:12px; }
+}
+@media(max-width:360px) {
+  .control-inner>.motion-banner { grid-template-columns:26px minmax(0,1fr) auto; gap:8px; padding:11px; }
+  .motion-symbol { width:26px; }.motion-symbol i { width:26px; height:26px; }
+  .control-inner>.motion-banner button { min-width:60px; padding:8px; font-size:11px; }
+  .control-inner>.motion-banner strong { font-size:12px; }
+  .control-inner>.motion-banner p { font-size:10px; }
+  #controlConnect h1 { font-size:21px; }
+  .connect-device { width:50px; height:50px; border-radius:17px; }
+  .connect-device img { width:31px; height:31px; }
+}
+@media(max-height:620px) {
+  .control-inner>.motion-banner { margin-top:7px; padding:10px; }
+  #controlConnect .connect-hero { padding:14px 0; }
+  #controlConnect .control-methods { margin-bottom:10px; }
+  #controlConnect .connect-card { padding:11px; }
+  #controlConnect .scanner-frame { min-height:82px; }
+  #controlConnect #scanPlaceholder { flex-direction:row; gap:13px; padding:12px; }
+  #controlConnect #scanPlaceholder p { text-align:left; font-size:12px; }
+  #controlConnect .connect-scan-icon { width:44px; height:38px; flex:none; }
+  #controlConnect .control-wifi { margin-top:11px; }
+  #controlConnect #codePanel { padding:14px; }
+  #controlConnect .pair-code-label { margin-bottom:12px; }
+  #controlConnect #pairCode { height:65px; font-size:30px; }
+  #controlConnect #codePanel>p { margin:10px 0; }
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) { .control-inner>.motion-banner { background:#302e33; } }
+@media(prefers-reduced-transparency:reduce) { .control-inner>.motion-banner,#controlConnect .control-methods,#controlConnect .connect-card { backdrop-filter:none; -webkit-backdrop-filter:none; background:#252428; } }
+
+.control-screen button:focus-visible { outline-color:var(--connect-accent); }
+
+@media(prefers-reduced-motion:reduce) { .pair-code-field { transition:none; } }

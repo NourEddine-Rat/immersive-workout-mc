@@ -1,0 +1,73 @@
+/* A shared header keeps the chevron, page title and status on one baseline. */
+.phone-page-head {
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
+  align-items:center;
+  column-gap:8px;
+  height:auto;
+  min-height:44px;
+  padding:0 48px 0 0;
+  text-align:left;
+}
+.statistics-head.phone-page-head { margin-bottom:16px; }
+.phone-page-head>.phone-back {
+  position:static;
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  min-height:44px;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:14px;
+  background:transparent;
+  color:inherit;
+  box-shadow:none;
+  line-height:1;
+  touch-action:manipulation;
+}
+.phone-page-head>.phone-back::before { content:none; }
+.phone-back svg,.phone-back-label svg {
+  display:block;
+  flex:none;
+  width:24px;
+  height:24px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.phone-page-head>h1,.control-head.phone-page-head>span,.basics-head.phone-page-head>span {
+  position:static;
+  transform:none;
+  min-width:0;
+  margin:0;
+  text-align:left;
+  font:600 18px/1.25 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+  letter-spacing:-.025em;
+}
+.phone-page-head>small,.phone-page-head>p,.phone-page-head>.metric-period {
+  margin:0;
+  align-self:center;
+  line-height:1.3;
+  font-size:10px;
+  text-align:right;
+}
+.phone-back-label {
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:8px;
+  width:auto;
+  min-height:44px;
+  margin:0 0 14px;
+  padding:0 12px 0 10px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:600 15px/1.25 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+}
+.phone-page-head>.phone-back:active,.phone-back-label:active { background:#ffffff12; }
+.phone-page-head>.phone-back:focus-visible,.phone-back-label:focus-visible { outline:2px solid currentColor; outline-offset:2px; }

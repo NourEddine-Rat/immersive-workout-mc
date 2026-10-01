@@ -1,0 +1,16 @@
+{
+  "name": "inmotion-arcade",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:phone": "node --test tests/phone.e2e.mjs",
+    "test:direct": "node --test tests/direct.e2e.mjs",
+    "test:browser": "node --test --test-concurrency=1 tests/*.e2e.mjs",
+    "test:webkit": "node --test tests/direct.webkit.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2",
+    "ws": "^8.22.0"
+  }
+}

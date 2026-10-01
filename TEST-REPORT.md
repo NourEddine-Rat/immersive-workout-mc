@@ -1,0 +1,43 @@
+# Beta verification — 1 October 2026
+
+The connection now uses encrypted WebRTC data channels directly between the phone and PC. The hosted server provides files, pairing and signaling. It does not relay motion, controls, profiles, calibration or game history. No STUN/TURN service or WebSocket gameplay fallback is configured. Play requires a verified local route and fresh motion.
+
+## Latest interface update
+
+Three targeted browser integration tests passed after the silent-game and pairing changes. They exercise all four games and assert zero audio-context creation, speech playback or unmuted media playback; motion-loss pause/resume remains working. They also confirm the carousel unlocks before motion is enabled, stays available when motion stops, and still waits for the finished entrance before showing the QR panel.
+
+A separate browser review checked both supplied logos in Red Light and Jump Rope, their game-specific credit text, restoration of Subway credits, and Track & Field skipping the notice. Desktop and narrow-screen captures confirm the pairing panel has no decorative icons or status dot. No page errors were observed.
+
+The earlier complete connection verification is recorded below. These UI changes do not alter the WebRTC transport or server protocol.
+
+## Passed
+
+| Check | Result |
+| --- | --- |
+| `npm test` | 21 unit, storage, signaling and hosting tests passed. |
+| `npm run test:browser` | 8 browser integration tests passed with real Chrome pages and WebRTC connections. |
+| `npm run test:webkit` | 1 cross-browser test passed: WebKit phone to Chrome PC, synthetic motion, channel loss/reconnect and PC navigation to training. |
+| Actual local HTTPS QR | Decoded the displayed QR image, opened its matching `local-ip.sh` HTTPS URL, connected, sent synthetic motion and unlocked the carousel. No page errors. Certificate validation remained enabled. |
+| Clean upload folder | Started with Heroku-style `PORT`, checked health and dynamic hosted links, fetched 217 runtime files, checked protected paths and clean SIGTERM shutdown. |
+
+The browser checks cover all four game pages, phone actions, pause/resume, history and identity after reload, permission/storage failures, competing phones, loading retry, expired codes, server restart, and QR generation. The pairing modal waits until the carousel entrance and widgets finish before appearing.
+
+The transport checks verify an empty `iceServers` list, host UDP routes, one motion sample per packet, unordered motion with zero retransmissions, and local candidate matching when browser statistics hide addresses. Simulated relay statistics block play and send zero motion packets. Captured WebSocket messages contain setup/heartbeat traffic only, with no gameplay payloads or diagnostic POST uploads.
+
+In the server-outage test, the Python signaling server is terminated after pairing. Fresh motion continues for five seconds, with more than 80 additional packets received and the PC remaining ready. A separate reconnect test closes the direct connection and checks that the game blocks until the local link recovers.
+
+## Performance observations
+
+The previous six-sample application batch is removed. Samples leave the phone immediately; motion uses an unordered channel without retransmissions, with a bounded send buffer. Game input rejects duplicate/out-of-order timestamps and stale samples after clock synchronization.
+
+Same-machine browser runs observed median sample age between approximately 0 and 0.7 ms, with 95th-percentile values from 0.5 to 49.9 ms as machine/browser load varied. These are synthetic test measurements on one Mac, **not physical Wi-Fi latency, sensor-to-display latency, or a performance guarantee**. Sensor scheduling, browser load, radio conditions and rendering still take time.
+
+## Still to verify on real hardware and hosting
+
+1. Deploy the repository root to a live Heroku app with exactly one web dyno, then scan its real HTTPS QR. Hosting behavior was tested locally in Heroku mode; no remote app has been deployed from this task.
+2. Test an actual iPhone in Safari and Android phone in Chrome. Allow Motion and Local Network access if requested; calibrate and play each game with the phone in the intended pocket position.
+3. Test phone lock/unlock, background/return, denied permissions and Wi-Fi changes. Mobile OS power policies and actual motion detection cannot be validated by synthetic desktop events.
+4. Try two independent player pairs and the expected number of simultaneous beta users on the chosen dyno. Room isolation is tested; capacity has not been load-tested.
+5. Confirm guest Wi-Fi/device isolation produces the blocked/retry instructions. Use a normal shared LAN with VPNs disabled. Browsers cannot inspect SSIDs or prove the underlying physical path of an undisclosed VPN; see [DIRECT-CONNECTION.md](DIRECT-CONNECTION.md).
+
+The folder is prepared for a beta deployment. No application can guarantee zero delay or work on every Wi-Fi/router/browser combination. This implementation keeps the local-connection requirement: an unavailable or unverifiable route blocks play instead of sending motion through Heroku.

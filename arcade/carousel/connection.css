@@ -1,0 +1,84 @@
+/* A compact glass controller card; the finished gallery remains visible behind it. */
+.pair-dialog {
+  box-sizing:border-box; width:min(620px,calc(100vw - 40px)); max-height:calc(100dvh - 40px);
+  margin:auto; padding:30px; overflow-x:hidden; overflow-y:auto; color:#fff;
+  border:1px solid #ffffff70; border-radius:30px;
+  background:linear-gradient(132deg,rgba(235,248,250,.27),rgba(206,228,235,.12) 40%,rgba(29,64,78,.30));
+  background-color:rgba(12,34,46,.18);
+  backdrop-filter:blur(32px) saturate(1.15); -webkit-backdrop-filter:blur(32px) saturate(1.15);
+  box-shadow:inset 0 1px 0 #ffffff85,inset 0 -1px 0 #ffffff16,0 24px 80px #06172245;
+  font:14px/1.5 Montserrat,Arial,sans-serif; text-align:left;
+}
+.pair-dialog:focus,#pair-title:focus { outline:none; }
+.pair-dialog[open] { animation:pair-appear .38s cubic-bezier(.2,.8,.2,1) both; }
+.pair-dialog::backdrop { background:rgba(8,23,32,.34); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+.pair-header { display:flex; align-items:center; gap:10px; font-size:9px; font-weight:700; letter-spacing:.16em; color:#e8f4f5; }
+.pair-dialog h2 { margin:18px 0 7px; font-size:36px; font-weight:600; line-height:1.12; letter-spacing:-.055em; text-shadow:0 1px 12px #12334022; }
+#pair-help { margin:0; font-size:13px; line-height:1.6; color:#edf5f6; }
+.pair-layout { display:grid; grid-template-columns:200px minmax(0,1fr); gap:28px; align-items:center; margin:26px 0 22px; }
+.pair-scan { min-width:0; text-align:center; }
+.pair-qr { display:grid; place-items:center; box-sizing:border-box; width:200px; aspect-ratio:1; padding:4px; overflow:hidden; background:#fff; border:1px solid #fff; border-radius:20px; box-shadow:0 6px 22px #061d3224; color:#2f4a55; }
+.pair-qr svg { display:block; width:100%; height:auto; }
+.pair-loading { font-size:12px; }
+.pair-scan-label { display:block; margin-top:11px; color:#e4eff2; font-size:10px; }
+.pair-code-label { display:block; color:#edf5f6; font-size:9px; font-weight:600; letter-spacing:.11em; }
+.pair-code { display:flex; gap:5px; margin:11px 0 10px; font:600 25px/1.2 Montserrat,Arial,sans-serif; font-variant-numeric:tabular-nums; }
+.pair-code > span { display:grid; place-items:center; width:31px; height:42px; border:1px solid #ffffff42; border-radius:8px; background:linear-gradient(155deg,#2447573d,#ffffff0a); box-shadow:inset 0 1px 0 #ffffff24; }
+.pair-code > span:nth-child(3) { margin-right:5px; }
+.pair-manual { margin:0; font-size:11px; line-height:1.65; color:#edf5f6; }
+.pair-motion-step { margin-top:20px; padding-top:17px; border-top:1px solid #ffffff2c; }
+.pair-motion-step strong { display:block; margin:1px 0 5px; font-size:12px; font-weight:600; }
+.pair-motion-step p { margin:0; font-size:11px; line-height:1.65; color:#edf5f6; }
+.pair-link-row { display:flex; align-items:center; gap:10px; padding:9px 10px 9px 13px; border:1px solid #ffffff3c; border-radius:13px; background:#05273524; }
+.pair-address { flex:1; min-width:0; color:#fff; font-size:11px; line-height:1.55; overflow-wrap:anywhere; text-decoration:none; }
+.pair-address:hover { text-decoration:underline; text-underline-offset:3px; }
+.pair-dialog button { cursor:pointer; font:inherit; }
+.pair-copy { flex-shrink:0; border:1px solid #ffffff35; border-radius:9px; padding:8px 11px; color:#fff; background:#ffffff1c; font-size:10px!important; }
+.pair-copy:hover { background:#ffffff30; }
+.pair-copy:disabled { opacity:.5; cursor:wait; }
+.pair-copy-input { position:fixed; left:0; top:0; width:1px; height:1px; opacity:0; }
+.pair-network { text-align:center; margin:10px 0 18px; color:#e4eef0; font-size:10px; }
+.pair-state { display:flex; align-items:center; justify-content:center; gap:9px; min-height:20px; padding-top:18px; border-top:1px solid #ffffff2a; font-size:11px; line-height:1.5; text-align:center; color:#f1f8fa; }
+.pair-close { position:absolute; right:18px; top:16px; border:0; background:none; color:#fff; font-size:11px!important; line-height:1.5; padding:4px; }
+.pair-retry { padding:6px 12px; border:1px solid #ffffff50; border-radius:8px; background:#ffffff1a; color:#fff; font-size:11px!important; }
+.pair-trouble { margin:-2px 0 16px; font-size:10px; text-align:center; color:#eaf4f5; }
+.pair-trouble summary { list-style:none; cursor:pointer; text-underline-offset:3px; }
+.pair-trouble summary:hover { text-decoration:underline; }
+.pair-warning { text-align:left; margin:10px 0 0; padding:10px 12px; border-radius:10px; background:#342b2259; color:#ffedcd; font-size:11px; line-height:1.6; }
+.pair-dialog [hidden] { display:none!important; }
+.pair-dialog button:focus-visible,.pair-dialog a:focus-visible { outline:2px solid #fff; outline-offset:4px; }
+@keyframes pair-appear { from { opacity:0; transform:translateY(10px) scale(.985); } to { opacity:1; transform:none; } }
+@media (max-width:600px) {
+  .pair-dialog { width:calc(100vw - 28px); padding:24px; border-radius:24px; }
+  .pair-dialog h2 { font-size:30px; }
+  .pair-layout { grid-template-columns:minmax(140px,175px) minmax(0,1fr); gap:20px; }
+  .pair-qr { width:100%; }
+  .pair-code { gap:3px; font-size:21px; }
+  .pair-code > span { width:26px; height:36px; }
+  .pair-code > span:nth-child(3) { margin-right:2px; }
+}
+@media (max-width:450px) {
+  .pair-dialog { padding:22px 18px; }
+  .pair-header { font-size:8px; letter-spacing:.1em; }
+  .pair-layout { grid-template-columns:140px minmax(0,1fr); gap:14px; margin:22px 0; }
+  .pair-code { gap:2px; font-size:19px; }
+  .pair-code > span { width:22px; height:32px; border-radius:6px; }
+  .pair-code-label { font-size:8px; letter-spacing:0; }
+  .pair-manual,.pair-motion-step p { font-size:10px; }
+  .pair-manual br { display:none; }
+  .pair-motion-step { gap:0; margin-top:12px; padding-top:12px; }
+  .pair-scan-label { font-size:9px; }
+  .pair-address { font-size:10px; }
+  .pair-copy { padding:7px 8px; }
+}
+@media (max-height:650px) and (min-width:601px) {
+  .pair-dialog { padding:22px 28px; }
+  .pair-dialog h2 { margin-top:12px; font-size:32px; }
+  .pair-layout { grid-template-columns:175px minmax(0,1fr); margin:18px 0; }
+  .pair-qr { width:175px; }
+  .pair-network { margin-bottom:12px; }
+  .pair-state { padding-top:12px; }
+}
+@media (prefers-reduced-motion:reduce) { .pair-dialog[open] { animation:none; } }
+
+.pair-trouble summary::-webkit-details-marker { display:none; }

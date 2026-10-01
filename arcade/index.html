@@ -1,0 +1,1591 @@
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <script src="./engine/device-entry.js"></script>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <link rel="icon" href="data:,">
+        <title>Curved 3D Carousel</title>
+        <link rel="stylesheet" href="./carousel/intro.css">
+        <link rel="stylesheet" href="./carousel/phone-status.css">
+        <link rel="stylesheet" href="./carousel/connection.css">
+        <link rel="stylesheet" href="./carousel/game-about.css">
+        <style>
+            * {
+                box-sizing: border-box
+            }
+
+            html,body {
+                margin: 0;
+                width: 100%;
+                height: 100%;
+                background: #18232d;
+                color: white;
+                font-family: Arial,Helvetica,sans-serif;
+                overflow: hidden
+            }
+
+            button {
+                font: inherit;
+                cursor: pointer
+            }
+
+            button:focus-visible,a:focus-visible {
+                outline: 2px solid #8acaff;
+                outline-offset: 5px
+            }
+
+            .frame {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                height: 100dvh;
+                border: 1px solid #202020;
+                border-top-color: #777;
+                border-radius: 0 0 20px 20px;
+                overflow: hidden;
+                background: #18232d
+            }
+
+            #stage {
+                position: absolute;
+                inset: 0;
+                touch-action: none;
+                cursor: grab;
+                outline: none
+            }
+
+            #stage:active {
+                cursor: grabbing
+            }
+
+            canvas {
+                display: block;
+                width: 100%;
+                height: 100%
+            }
+
+            .game-logo {
+                position: absolute;
+                top: clamp(22px, 4.5vh, 54px);
+                left: 50%;
+                width: min(27vw, 40vh, 320px);
+                height: auto;
+                z-index: 2;
+                opacity: 0;
+                visibility: hidden;
+                transform: translate(-50%, 8px) scale(.97);
+                filter: brightness(.94) saturate(.90) drop-shadow(0 7px 12px rgba(5, 12, 20, .48));
+                pointer-events: none;
+                user-select: none;
+                transition: opacity .4s ease, transform .55s ease, visibility .4s;
+            }
+
+            .game-logo.is-active {
+                opacity: .96;
+                visibility: visible;
+                transform: translate(-50%, 0) scale(1);
+            }
+
+            /* the olympics logo is square: narrower, so it stands as tall as the wide ones */
+            .game-logo.square { width: min(19vw, 29vh, 230px); }
+
+            @media (max-width: 650px) {
+                .game-logo { width: min(62vw, 36vh, 290px); top: 5.5vh; }
+                .game-logo.square { width: min(44vw, 26vh, 210px); }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .game-logo { transition: none; }
+            }
+
+            .notice {
+                position: absolute;
+                top: 22px;
+                left: 50%;
+                transform: translateX(-50%);
+                max-width: 90%;
+                text-align: center;
+                font-size: 13px;
+                color: #ccc;
+                background: #191919;
+                padding: 10px 16px;
+                border-radius: 30px;
+                transition: opacity .4s;
+                pointer-events: none
+            }
+
+            .notice:empty {
+                opacity: 0
+            }
+
+            .sr {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%)
+            }
+        </style>
+    </head>
+
+    <body>
+        <main class="frame" aria-label="Interactive curved media carousel">
+            <div id="stage" role="region" aria-roledescription="carousel" aria-label="Landscape gallery. Scroll, drag, or use left and right arrow keys." tabindex="0"></div>
+
+            <!-- one logo per game; the one whose card is in front shows (data-game = the game's key) -->
+            <img class="game-logo" data-game="subway" src="./carousel/subway-photo-logo-4301.png"
+                width="2092" height="981" alt="Subway Surfers" aria-hidden="true" draggable="false" decoding="async">
+            <img class="game-logo" data-game="redlight" src="./carousel/green-red-light.png"
+                width="684" height="365" alt="Red Light, Green Light" aria-hidden="true" draggable="false" decoding="async">
+            <img class="game-logo" data-game="jumprope" src="./carousel/jump-rope.png"
+                width="684" height="365" alt="Jump Rope" aria-hidden="true" draggable="false" decoding="async">
+            <img class="game-logo square" data-game="track" src="./carousel/olampics-logo.png"
+                width="500" height="500" alt="Olympics" aria-hidden="true" draggable="false" decoding="async">
+
+            <aside class="phone-status" id="phone-status" data-state="offline" aria-label="Phone connection">
+                <span class="phone-orbit" aria-hidden="true"><span class="phone-orbit-light"></span></span>
+                <div class="phone-portrait"><img src="./carousel/phone-avatar.jpg" alt="" width="54" height="60"><span class="phone-scan" aria-hidden="true"></span></div>
+                <div class="phone-copy"><strong id="phone-state" role="status">Not connected</strong></div>
+                <span class="phone-signal" aria-hidden="true"><i></i><i></i><i></i></span>
+            </aside>
+            <section class="race-summary" id="race-summary" aria-label="Sample racing progress: 62 percent, 3 of 24 GP completed, 165 laps, 922.8 kilometres">
+                <div class="race-ring">
+                    <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="race-ring-track" cx="50" cy="50" r="43"/><circle class="race-ring-fill" cx="50" cy="50" r="43" pathLength="100"/></svg>
+                    <div class="race-ring-label"><img class="race-fire-icon" src="./carousel/stat-fire.svg" width="20" height="20" alt=""><strong>62%</strong></div>
+                </div>
+                <div class="race-glass">
+                    <div class="race-heading"><strong>62<span>%</span></strong><span>3/24 GP Completed</span></div>
+                    <div class="race-segments" aria-hidden="true"></div>
+                    <div class="race-metrics">
+                        <span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5h11a4 4 0 0 1 0 8H8a3 3 0 0 0 0 6h11M8 2 5 5l3 3m8 8 3 3-3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>165 <span>Laps</span></strong></span>
+                        <span><img class="race-foot-icon" src="./carousel/stat-footprint.png" width="14" height="16" alt=""><strong>922.8 <span>KM</span></strong></span>
+                    </div>
+                </div>
+            </section>
+            <!-- bottom right: your controller (the training) and the TV — glass buttons like the phone card, each with a small card -->
+            <div class="tv-dock" id="tv-dock">
+                <div class="tv-pop train-pop" id="train-pop" role="dialog" aria-label="Train your controller" hidden>
+                    <span class="tv-pop-title">YOUR CONTROLLER</span>
+                    <strong id="train-title">Train it on you</strong>
+                    <span class="tv-pop-note" id="train-note">One minute, once: walk, run, stop, jump and squat. Every game then fits how you move.</span>
+                    <a class="train-go" id="train-go" href="./training/">Start training</a>
+                </div>
+                <div class="tv-pop" id="tv-pop" role="dialog" aria-label="Play on your TV" hidden>
+                    <span class="tv-pop-title">PLAY ON YOUR TV</span>
+                    <strong id="tv-url">Loading address…</strong>
+                    <span class="tv-pop-note">Open this link in your TV’s browser and connect your phone to the code shown there.</span>
+                    <span class="tv-pop-note">Or connect your PC to the TV with an HDMI cable and play from your PC.</span>
+                    <span class="tv-beta">BETA PREVIEW</span>
+                    <span class="tv-pop-note">TV support is experimental. This preview is not adapted to every TV, so display, performance or browser problems may occur.</span>
+                </div>
+                <div class="dock-row">
+                    <button type="button" class="tv-button" id="train-button" aria-label="Train your controller" aria-expanded="false" aria-controls="train-pop">
+                        <span class="phone-orbit" aria-hidden="true"><span class="phone-orbit-light"></span></span>
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7.5h10a4.4 4.4 0 0 1 4.3 5.4l-.9 3.9a2.4 2.4 0 0 1-4.2 1L14.6 16H9.4l-1.6 1.8a2.4 2.4 0 0 1-4.2-1l-.9-3.9A4.4 4.4 0 0 1 7 7.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 10.6v3.2M6.4 12.2h3.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="15.6" cy="11.3" r="1" fill="currentColor"/><circle cx="17.6" cy="13.3" r="1" fill="currentColor"/></svg>
+                    </button>
+                    <button type="button" class="tv-button" id="tv-button" aria-label="Play on your TV" aria-expanded="false" aria-controls="tv-pop">
+                        <span class="phone-orbit" aria-hidden="true"><span class="phone-orbit-light"></span></span>
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.6" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 21h7M9 2.8 12 5.6l3-2.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="notice" id="notice" role="status">Loading gallery…</div>
+
+            <div class="sr" id="selection" aria-live="polite"></div>
+
+            <input id="picker" class="sr" type="file" multiple accept="image/*,video/*" tabindex="-1">
+        </main>
+
+        <div class="intro" id="intro" role="dialog" aria-label="Opening gallery" aria-modal="true">
+            <video class="intro-video" id="intro-video" muted playsinline preload="auto" aria-hidden="true">
+                <source src="./carousel/intro-reveal.mp4" type="video/mp4">
+            </video>
+            <div class="intro-hud">
+                <div class="intro-caption"><span id="intro-percent">0%</span></div>
+                <div class="intro-track" id="intro-progress" role="progressbar" aria-label="Loading gallery" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="intro-fill"></div></div>
+            </div>
+            <button class="intro-skip" id="intro-skip" type="button" aria-label="Skip intro"><span aria-hidden="true">×</span></button>
+        </div>
+        <noscript><style>.intro { display: none; }</style></noscript>
+        <script>
+        if (new URLSearchParams(location.search).get('controller') === '1') document.documentElement.classList.add('remote-view');
+        </script>
+        <style>
+        .remote-view #intro,.remote-view #phone-status,.remote-view #race-summary,.remote-view #tv-dock,.remote-view #notice {display:none!important}
+        .remote-view .game-logo {top:7%;max-width:48%;}
+        .remote-view,.remote-view body,.remote-view .frame {background:#0b0b0e}
+        .remote-view .frame {border:0;border-radius:0}
+        .remote-view #picker {display:none}
+        .remote-view #stage {touch-action:none}
+        </style>
+        <script src="./carousel/intro.js"></script>
+        <script src="./carousel/recovery.js"></script>
+        <script type="module" src="./carousel/phone-status.js"></script>
+        <script type="module" src="./carousel/connection.js"></script>
+        <script src="./carousel/race-summary.js"></script>
+        <script src="./carousel/dock.js"></script>
+        <script src="./carousel/game-about.js?v=20260929-launch-3"></script>
+        <dialog class="game-about" id="game-about" aria-labelledby="about-title" aria-describedby="about-description">
+            <div class="about-inner">
+                <span class="about-kicker" id="about-kicker">ABOUT</span>
+                <h1 id="about-title">ENDLESS RUNNER</h1>
+                <span class="about-version">Version 1.0.0</span>
+                <div class="about-logos" aria-label="Referenced game and studio">
+                    <img src="./carousel/credits-subway.svg" alt="Subway Surfers" width="132" height="70">
+                    <span aria-hidden="true"></span>
+                    <img class="about-sybo" src="./carousel/credits-sybo.png" alt="SYBO" width="82" height="24">
+                </div>
+                <div class="about-copy" id="about-description">
+                    <p>Gameplay inspired by endless runner games such as Subway Surfers and Temple Run.</p>
+                    <p>Some visual themes are influenced by popular survival-game media.</p>
+                    <p>This is an independent project. It is not affiliated with or endorsed by any referenced titles, studios, or rights holders.</p>
+                </div>
+                <div class="about-countdown"><span id="about-countdown-label">Continuing in 3s</span><button type="button" id="about-timer-toggle">Pause</button></div>
+                <div class="about-timer-track" aria-hidden="true"><span id="about-timer-fill"></span></div>
+                <footer class="about-footer"><button type="button" data-about-page="credits">Credits</button><button type="button" data-about-page="legal">Legal</button><button type="button" id="about-close" autofocus>Close <span aria-hidden="true">×</span></button></footer>
+            </div>
+        </dialog>
+        <script type="importmap">
+            {"imports": {"three": "./engine/three/three.module.js"}}
+        </script>
+        <script type="module">
+            import * as THREE from 'three';
+            import { hostBridge } from './engine/host-bridge.js';
+            import './carousel/connection.js';
+            import { GLTFLoader } from './engine/three/GLTFLoader.js';
+            'use strict';
+
+
+            const remoteView = new URLSearchParams(location.search).get('controller') === '1';
+            let introAssetsReady = false;
+            THREE.DefaultLoadingManager.onProgress = (_url, loaded, total) => window.galleryIntro?.progress(loaded / total);
+            THREE.DefaultLoadingManager.onLoad = () => { introAssetsReady = true; };
+
+            const stage = document.querySelector('#stage'),
+                notice = document.querySelector('#notice');
+            const gameLogos = [...document.querySelectorAll('.game-logo')];
+
+            let noticeTimer;
+
+            function tell(text, delay = 3500) {
+                notice.textContent = text;
+                clearTimeout(noticeTimer);
+
+                if (delay) {
+                    noticeTimer = setTimeout(() => {
+                        notice.textContent = '';
+                    }, delay);
+                }
+            }
+
+            if (!THREE) {
+                tell('Three.js could not load. Check your internet connection and reload.', 0);
+            } else {
+                try {
+                    start();
+                } catch (error) {
+                    window.galleryIntro?.finish();
+                    console.error(error);
+                    if(remoteView)parent.postMessage({t:'carousel-error'},location.origin);
+                    window.galleryRecovery?.fail('This gallery needs WebGL. Try a recent Chrome, Edge or Safari browser with hardware acceleration enabled.');
+                }
+            }
+
+            function start() {
+                const renderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    alpha: false,
+                    powerPreference: 'high-performance'
+                });
+
+                renderer.setPixelRatio(Math.min(devicePixelRatio, remoteView ? 1.5 : 2));
+                renderer.setClearColor(remoteView ? 0x0b0b0e : 0x18232d);
+                renderer.autoClear = false;
+                renderer.outputColorSpace = THREE.SRGBColorSpace;
+                stage.appendChild(renderer.domElement);
+                renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();window.galleryRecovery?.fail('Your browser paused the 3D graphics. Close unused tabs, then reload the gallery.');});
+
+                const scene = new THREE.Scene(),
+                    camera = new THREE.PerspectiveCamera(36, 1, .1, 100);
+
+                camera.position.z = 24.1;
+
+                // Soft, neutral lighting is only for the foreground arms model.
+                // The carousel cards use their own shader lighting.
+                scene.add(new THREE.HemisphereLight(0xc8dded, 0x494a45, .88));
+                const keyLight = new THREE.DirectionalLight(0xffe8d0, 1.05);
+                keyLight.position.set(-3, 4, 3);
+                scene.add(keyLight);
+                const fillLight = new THREE.DirectionalLight(0x9dbbd4, .24);
+                fillLight.position.set(4, 1, 1);
+                scene.add(fillLight);
+
+                // Warm, camera-locked fills keep the first-person hands readable
+                // and softly separated from the carousel behind them.
+                const handFill = new THREE.PointLight(0xbcc9ff, .24, 0, 2);
+                handFill.position.set(0.4, 0.1, -0.5);
+                camera.add(handFill);
+                const handWarm = new THREE.PointLight(0xffe0bb, .14, 0, 2);
+                handWarm.position.set(-0.4, -0.3, -0.5);
+                camera.add(handWarm);
+
+                // Soft reflected light from the white glass lip falls back onto the hands.
+                const glassBounce = new THREE.DirectionalLight(0xe3f4ff, .38);
+                glassBounce.position.set(0, -1, -2);
+                camera.add(glassBounce);
+                scene.traverse(object => { if (object.isLight) object.layers.enable(1); });
+                [handFill, handWarm, glassBounce].forEach(light => light.layers.enable(1));
+                const handsRoot = new THREE.Group();
+                handsRoot.visible = false;
+                camera.add(handsRoot);
+                scene.add(camera);
+
+                let handsModel = null;
+                let handsMixer = null;
+                let handsAction = null;
+
+                // Camera-space home pose for the arms, tuned so the hands sit in
+                // the lower-middle of the frame with the forearms entering from
+                // the bottom edge like a first-person viewpoint.
+                let handScale = 0.65;
+                let handY = -2.50;
+                let handZ = 0.30;
+                let handRX = -0.10;
+                let handRZ = 0.02;
+                let cameraBaseZ = 24.1;
+
+                const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                // Load the supplied rigged first-person arms and keep them attached to
+                // the camera so they stay in the viewer's personal space.
+                if (GLTFLoader && !remoteView) {
+                    const gltfLoader = new GLTFLoader();
+                    gltfLoader.load(
+                        './carousel/free_gameready_fps_female_arms.glb',
+                        gltf => {
+                            handsModel = gltf.scene;
+                            handsModel.traverse(object => {
+                                if (object.isMesh) {
+                                    object.layers.enable(1);
+                                    object.frustumCulled = false;
+                                    object.castShadow = false;
+                                    object.receiveShadow = false;
+                                    if (object.material) {
+                                        object.material.roughness = Math.max(.42, object.material.roughness || .42);
+                                    }
+                                }
+                            });
+
+                            // The asset is a two-arm rifle-rest pose. This framing
+                            // crops the upper arms and leaves only the hands and
+                            // forearms in view.
+                            handsModel.scale.setScalar(handScale);
+                            handsModel.position.set(0, handY, handZ);
+                            handsModel.rotation.set(handRX, 0, handRZ);
+                            handsRoot.add(handsModel);
+                            handsRoot.visible = true;
+
+                            if (gltf.animations.length) {
+                                handsMixer = new THREE.AnimationMixer(handsModel);
+                                const clip = THREE.AnimationClip.findByName(gltf.animations, 'Throw Pose') || gltf.animations[0];
+                                handsAction = handsMixer.clipAction(clip);
+                                handsAction.setLoop(THREE.LoopRepeat, Infinity);
+                                handsAction.timeScale = reduced ? 0 : 0.16;
+                                handsAction.play();
+                            }
+                        },
+                        undefined,
+                        error => console.warn('Could not load first-person arms model.', error)
+                    );
+                }
+
+                const R = 12.8,
+                    STEP = .40,
+                    CARD_W = 4.5,
+                    CARD_H = 2.65;
+
+                const vertex = `
+                    varying vec2 vUv;
+                    varying vec3 vWorld;
+
+                    void main() {
+                        vUv = uv;
+
+                        vec4 world = modelMatrix * vec4(position, 1.0);
+                        vWorld = world.xyz;
+
+                        gl_Position = projectionMatrix * viewMatrix * world;
+                    }
+                `;
+
+                const cards = [];
+
+                let images = [],
+                    videos = [],
+                    items = [],
+                    mode = 'images',
+                    position = 0,
+                    target = 0,
+                    drag = false,
+                    lastX = 0,
+                    lastTime = 0,
+                    velocity = 0,
+                    moved = 0,
+                    snapTimer,
+                    active = -1,
+                    pointerX = 0,
+                    pointerY = 0,
+                    smoothPointerX = 0,
+                    smoothPointerY = 0;
+                let scrollImpulse = 0, handSway = 0, handSwayVelocity = 0, headSway = 0;
+
+                const loader = new THREE.TextureLoader();
+                loader.setCrossOrigin('anonymous');
+                const localLoader = new THREE.TextureLoader();
+
+                // Curved backing with gently flared top and bottom arches.
+                const ribbon = new THREE.PlaneGeometry(1, 4.15, 220, 12);
+                const p = ribbon.attributes.position;
+
+                for (let i = 0; i < p.count; i++) {
+                    const a = p.getX(i) * 2.3;
+                    const edgeAmount = Math.pow(Math.abs(a) / 1.15, 2);
+                    const archScale = 1 + edgeAmount * .19;
+
+                    p.setXYZ(
+                        i,
+                        R * Math.sin(a),
+                        p.getY(i) * archScale - .06,
+                        R * (1 - Math.cos(a)) - .12
+                    );
+                }
+
+                ribbon.computeVertexNormals();
+
+                // Render the animated hands separately for a soft, screen-space glass reflection.
+                const handReflection = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: true });
+                const holderMaterial = new THREE.ShaderMaterial({
+                    vertexShader: vertex,
+                    transparent: true,
+                    depthWrite: false,
+                    uniforms: {
+                        resolution: { value: new THREE.Vector2(1, 1) },
+                        time: { value: 0 },
+                        reflection: { value: handReflection.texture }
+                    },
+                    fragmentShader: `
+                        varying vec2 vUv;
+                        varying vec3 vWorld;
+                        uniform vec2 resolution;
+                        uniform float time;
+                        uniform sampler2D reflection;
+                        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+                        float noise(vec2 p) {
+                            vec2 i = floor(p), f = fract(p);
+                            f = f * f * (3.0 - 2.0 * f);
+                            return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x),
+                                       mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+                        }
+                        float cloud(vec2 p) {
+                            return noise(p) * .58 + noise(p * 2.03 + 7.1) * .28 + noise(p * 4.01) * .14;
+                        }
+                        void main() {
+                            float edge = min(vUv.y, 1.0 - vUv.y);
+                            float lip = exp(-edge * 210.0);
+                            float bevel = exp(-edge * 65.0);
+                            float glow = exp(-edge * 19.0);
+                            float flank = pow(abs(vUv.x - .5) * 2.0, 2.0);
+                            // Two slow layers of suspended frost give the shell soft internal depth.
+                            vec2 cloudUV = vec2(vUv.x * 9.0, vUv.y * 2.4);
+                            float nearCloud = cloud(cloudUV + vec2(time * .025, 0.0));
+                            float deepCloud = cloud(cloudUV * 1.3 - vec2(time * .017, .8));
+                            float mist = smoothstep(.18, .85, nearCloud * .65 + deepCloud * .35);
+                            float sweep = pow(.5 + .5 * sin(vUv.x * 6.0 + vUv.y * 1.5 - time * .18), 10.0);
+                            float rounded = sin(vUv.y * 3.14159);
+                            vec3 color = mix(vec3(.56, .65, .70), vec3(.87, .93, .96), mist);
+                            color *= .94 + rounded * .06;
+                            color += vec3(.035) * sweep;
+                            float opacity = .43 + mist * .12 + flank * .035;
+                            float rim = lip * .65 + bevel * .22 + glow * .10;
+                            color = mix(color, vec3(1.0), clamp(rim * 1.8, 0.0, 1.0));
+                            opacity += rim;
+                            // A gently warped, softened reflection follows the actual animated hands.
+                            vec2 screen = gl_FragCoord.xy / resolution;
+                            vec2 uv = vec2(1.0 - screen.x, (screen.y - .25) * .78);
+                            uv.x += sin(vUv.x * 3.14159) * .018;
+                            vec2 blur = vec2(2.5) / resolution;
+                            vec4 reflected = texture2D(reflection, uv) * .40;
+                            reflected += texture2D(reflection, uv + vec2(blur.x, 0.0)) * .15;
+                            reflected += texture2D(reflection, uv - vec2(blur.x, 0.0)) * .15;
+                            reflected += texture2D(reflection, uv + vec2(0.0, blur.y)) * .15;
+                            reflected += texture2D(reflection, uv - vec2(0.0, blur.y)) * .15;
+                            float reflectionStrength = .21 * (1.0 - smoothstep(.28, .95, vUv.y));
+                            float reflectedAlpha = reflected.a * reflectionStrength;
+                            color = mix(color, reflected.rgb / max(reflected.a, .001),
+                                reflectedAlpha / max(opacity + reflectedAlpha, .001));
+                            opacity = clamp(opacity + reflectedAlpha, 0.0, .92);
+                            gl_FragColor = vec4(color, opacity);
+                            #include <tonemapping_fragment>
+                            #include <colorspace_fragment>
+                        }
+                    `,
+                    side: THREE.DoubleSide
+                });
+                const glassRibbon = new THREE.Mesh(ribbon, holderMaterial);
+                glassRibbon.renderOrder = -1;
+                scene.add(glassRibbon);
+                // An exact curved-surface mask limits camera grading over the gallery.
+                const galleryMask = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+                const galleryMaskScene = new THREE.Scene();
+                galleryMaskScene.add(new THREE.Mesh(ribbon, new THREE.MeshBasicMaterial({
+                    color: 0xffffff, side: THREE.DoubleSide, toneMapped: false
+                })));
+
+                const placeholder = document.createElement('canvas');
+                placeholder.width = 32;
+                placeholder.height = 32;
+
+                const pc = placeholder.getContext('2d');
+                pc.fillStyle = remoteView ? '#0b0b0e' : '#18232d';
+                pc.fillRect(0, 0, 32, 32);
+
+                const blank = new THREE.CanvasTexture(placeholder);
+                blank.colorSpace = THREE.SRGBColorSpace;
+
+                // Full-screen image environment, rendered behind the actual 3D scene.
+                // Luminance parallax suggests depth without pretending a photo is a depth map.
+                // Each game gets a 2560×1440 in-game capture (no HUD, no hands) as its environment.
+                const environments = {};
+                for (const [key, name] of [
+                    ['subway', 'Subway'],
+                    ['redlight', 'Red Light Green Light'],
+                    ['jumprope', 'Jump Rope'],
+                    ['track', 'Track & Field']
+                ]) {
+                    const env = { ready: false };
+                    env.texture = loader.load(`./carousel/${key}-environment.webp`, () => {
+                        env.ready = true;
+                    }, undefined, () => tell(`${name} background could not load. Showing its cover image instead.`));
+                    env.texture.colorSpace = THREE.SRGBColorSpace;
+                    env.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    environments[key] = env;
+                }
+                const environmentScene = new THREE.Scene();
+                const environmentCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+                const environment = new THREE.ShaderMaterial({
+                    depthTest: false,
+                    depthWrite: false,
+                    uniforms: {
+                        mapA: { value: blank }, mapB: { value: blank },
+                        aspectA: { value: 16 / 9 }, aspectB: { value: 16 / 9 },
+                        viewport: { value: new THREE.Vector2(1, 1) },
+                        blend: { value: 0 }, time: { value: 0 },
+                        motion: { value: reduced ? 0 : 1 },
+                        pointer: { value: new THREE.Vector2() },
+                        wake: { value: 0 },
+                        travel: { value: 0 }
+                    },
+                    vertexShader: `
+                        varying vec2 vUv;
+                        void main() {
+                            vUv = uv;
+                            gl_Position = vec4(position.xy, 0.0, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec2 vUv;
+                        uniform sampler2D mapA, mapB;
+                        uniform float aspectA, aspectB, blend, time, motion, wake, travel;
+                        uniform vec2 viewport, pointer;
+
+                        vec3 landscape(sampler2D tex, float imageAspect, vec2 displacement) {
+
+                            float screenAspect = viewport.x / viewport.y;
+                            vec2 crop = vec2(min(1.0, screenAspect / imageAspect),
+                                             min(1.0, imageAspect / screenAspect));
+                            vec2 uv = (vUv - .5) * .90;
+                            vec2 mouse = pointer * vec2(.5, -.5) + .5;
+                            vec2 delta = (vUv - mouse) * vec2(screenAspect, 1.0);
+                            float distanceToMouse = length(delta);
+                            float influence = exp(-distanceToMouse * distanceToMouse * 13.0);
+                            vec2 direction = delta / max(distanceToMouse, .001);
+
+                            // Quiet ambient flow, with a stronger refracted wake near the cursor.
+                            vec2 flow = vec2(
+                                sin(uv.y * 11.0 + time * .38) + cos(uv.x * 9.0 - time * .23),
+                                cos(uv.x * 10.0 + time * .30) + sin(uv.y * 8.0 - time * .27)
+                            ) * .00065;
+                            float ripple = sin(distanceToMouse * 35.0 - time * 2.8);
+                            flow += direction * ripple * influence * (.0004 + wake * .002);
+                            // Broader, slow ripples across the bottom give a watery foreground.
+                            float water = 1.0 - smoothstep(.0, .36, vUv.y);
+                            flow.x += sin(vUv.y * 55.0 + time * .8 + vUv.x * 5.0) * water * .001;
+                            vec2 base = uv * crop + .5;
+                            // A smooth foreground-depth gradient avoids pixel-dependent tearing
+                            // around rails, text and other high-contrast edges.
+                            float depth = 1.0 - smoothstep(.08, .85, vUv.y);
+                            uv += pointer * vec2(-.017, .012) * (.65 + depth * .65) * motion;
+                            uv += flow * motion;
+                            uv += displacement;
+                            uv.x += travel * .005 * motion;
+                            vec3 color = texture2D(tex, clamp(uv * crop + .5, .001, .999)).rgb;
+                            // Retain the landscape's colour; softly shade the gallery's central band.
+                            float vignette = smoothstep(.24, .78, length((vUv - .5) * vec2(.9, 1.0)));
+                            float galleryShade = exp(-pow((vUv.y - .5) * 7.0, 2.0));
+                            color *= 1.0 - vignette * .08 - galleryShade * .08;
+                            color += vec3(.58, .79, .85) * water * .025;
+                            return color;
+                        }
+                        void main() {
+                            // Opposing liquid currents peak halfway through a transition and
+                            // vanish at each settled card, even when scrolling reverses.
+                            float envelope = sin(blend * 3.14159265) * motion;
+                            vec2 p = vUv * vec2(4.0, 3.0);
+                            float wave = sin(p.x + sin(p.y * 1.6 + time * .35));
+                            vec2 current = vec2(wave, cos(p.y + sin(p.x * 1.3 - time * .27)));
+                            vec2 displacement = current * envelope * .025;
+                            float liquidBlend = clamp(blend + wave * envelope * .12, 0.0, 1.0);
+                            vec3 a = landscape(mapA, aspectA, displacement * blend);
+                            vec3 b = landscape(mapB, aspectB, -displacement * (1.0 - blend));
+                            gl_FragColor = vec4(mix(a, b, liquidBlend), 1.0);
+                            #include <tonemapping_fragment>
+                            #include <colorspace_fragment>
+                        }
+                    `
+                });
+                environmentScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), environment));
+
+                // One lens pass covers the environment, carousel and hands together.
+                // Overscan keeps the barrel distortion inside the image at every corner.
+                const lensStrength = .29, lensOverscan = 1.31;
+                const viewTarget = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: true });
+                viewTarget.samples = renderer.capabilities.isWebGL2 ? 2 : 0;
+                const lensScene = new THREE.Scene();
+                const lensMaterial = new THREE.ShaderMaterial({
+                    depthTest: false, depthWrite: false,
+                    uniforms: {
+                        map: { value: viewTarget.texture },
+                        strength: { value: lensStrength },
+                        overscan: { value: lensOverscan },
+                        movement: { value: 0 },
+                        exposureMap: { value: null },
+                        galleryMask: { value: galleryMask.texture },
+                        handsMask: { value: handReflection.texture },
+                        resolution: { value: new THREE.Vector2(1, 1) }
+                    },
+                    vertexShader: `
+                        varying vec2 vUv;
+                        void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+                    `,
+                    fragmentShader: `
+                        varying vec2 vUv;
+                        uniform sampler2D map;
+                        uniform sampler2D exposureMap, galleryMask, handsMask;
+                        uniform float strength, overscan, movement;
+                        uniform vec2 resolution;
+                        void main() {
+                            vec2 p = (vUv - .5) * 2.0;
+                            float radius = dot(p, p) * .5;
+                            vec2 lens = p * (1.0 + strength * radius) / overscan;
+                            vec2 uv = lens * .5 + .5;
+                            // Soft camera-housing corners: a clear central aperture with a
+                            // defocused peripheral ring, rather than a dark overlay on the gallery.
+                            float apertureRadius = length(p * vec2(.94, 1.0));
+                            float peripheral = smoothstep(.52, 1.19, apertureRadius);
+                            float cornerMask = smoothstep(.94, 1.29, apertureRadius);
+                            vec2 radial = normalize(p + vec2(.00001));
+                            vec2 blur = radial * (3.8 + movement * 1.8) * peripheral / resolution;
+                            vec2 tangent = vec2(-radial.y, radial.x) * 1.5 * peripheral / resolution;
+                            vec3 soft = texture2D(map, uv).rgb * .36;
+                            soft += texture2D(map, uv + blur).rgb * .18;
+                            soft += texture2D(map, uv - blur).rgb * .18;
+                            soft += texture2D(map, uv + tangent).rgb * .14;
+                            soft += texture2D(map, uv - tangent).rgb * .14;
+                            // A faint split at the lens edge gives the reference's imperfect optics.
+                            vec2 fringe = p * radius * (.0006 + peripheral * .0032 + movement * .00065);
+                            vec3 spectral;
+                            spectral.r = texture2D(map, uv + fringe).r;
+                            spectral.g = soft.g;
+                            spectral.b = texture2D(map, uv - fringe).b;
+                            vec3 color = mix(soft, spectral, .76);
+                            vec3 naturalGlass = color;
+                            float galleryProtection = texture2D(galleryMask, uv).r *
+                                (1.0 - texture2D(handsMask, uv).a) * .80;
+                            float exposure = texture2D(exposureMap, vec2(.5)).r * 2.5;
+                            color *= exposure;
+                            float vignette = smoothstep(.18, 1.16, dot(p * vec2(.79, .88), p * vec2(.79, .88)));
+                            // Small-sensor response: deeper blacks, modest desaturation and clipped highlights.
+                            float luminance = dot(color, vec3(.2126, .7152, .0722));
+                            color = mix(vec3(luminance), color, .90);
+                            color *= mix(vec3(.94, .99, 1.035), vec3(1.035, 1.01, .975), smoothstep(.10, .82, luminance));
+                            color = clamp((color - .012) / .96, 0.0, 1.0);
+                            // Keep the glass and card colours mostly neutral, preserving lens optics.
+                            color = mix(color, naturalGlass * .97, galleryProtection);
+                            color *= 1.0 - vignette * .43;
+                            color *= 1.0 - cornerMask * .998;
+                            gl_FragColor = vec4(color, 1.0);
+                            #include <colorspace_fragment>
+                        }
+                    `
+                });
+                lensScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), lensMaterial));
+
+                // A 1x1 GPU meter adapts to the actual rendered scene without CPU readback.
+                // Exposure is ping-ponged, so this pass never reads from its own destination.
+                let exposureRead = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+                let exposureWrite = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+                const meterScene = new THREE.Scene();
+                const meterMaterial = new THREE.ShaderMaterial({
+                    depthTest: false, depthWrite: false,
+                    uniforms: {
+                        sceneMap: { value: viewTarget.texture },
+                        history: { value: exposureRead.texture },
+                        dt: { value: 0 },
+                        immediate: { value: 1 }
+                    },
+                    vertexShader: lensMaterial.vertexShader,
+                    fragmentShader: `
+                        uniform sampler2D sceneMap, history;
+                        uniform float dt, immediate;
+                        void main() {
+                            float total = 0.0;
+                            float linearTotal = 0.0;
+                            float weights = 0.0;
+                            for (int y = 0; y < 5; y++) {
+                                for (int x = 0; x < 5; x++) {
+                                    vec2 uv = vec2(.10) + vec2(float(x), float(y)) * .20;
+                                    vec3 sampleColor = texture2D(sceneMap, uv).rgb;
+                                    float luma = max(.025, dot(sampleColor, vec3(.2126, .7152, .0722)));
+                                    float weight = 1.0 - length(uv - .5) * .65;
+                                    total += log(luma) * weight;
+                                    linearTotal += luma * weight;
+                                    weights += weight;
+                                }
+                            }
+                            float measured = mix(exp(total / weights), linearTotal / weights, .65);
+                            float target = clamp(.20 / measured, .64, 1.45);
+                            float previous = texture2D(history, vec2(.5)).r * 2.5;
+                            // A bright scene closes the iris quickly; shadows recover more slowly.
+                            // The bounded lag creates brief over/underexposure, never a white flash overlay.
+                            float rate = target < previous ? 5.5 : 1.65;
+                            float exposure = mix(previous, target, 1.0 - exp(-dt * rate));
+                            exposure = mix(exposure, target, immediate);
+                            gl_FragColor = vec4(exposure / 2.5, 0.0, 0.0, 1.0);
+                        }
+                    `
+                });
+                meterScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), meterMaterial));
+
+                // Sparse points occupy real world depth, moving differently from the landscape.
+                const motesGeometry = new THREE.BufferGeometry();
+                const motePositions = new Float32Array(65 * 3);
+                for (let i = 0; i < 65; i++) {
+                    motePositions[i * 3] = (Math.random() - .5) * 36;
+                    motePositions[i * 3 + 1] = (Math.random() - .5) * 22;
+                    motePositions[i * 3 + 2] = -8 + Math.random() * 21;
+                }
+                motesGeometry.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
+                const motes = new THREE.Points(motesGeometry, new THREE.ShaderMaterial({
+                    transparent: true, depthWrite: false,
+                    uniforms: { pixelRatio: { value: renderer.getPixelRatio() } },
+                    vertexShader: `
+                        uniform float pixelRatio;
+                        void main() {
+                            vec4 p = modelViewMatrix * vec4(position, 1.0);
+                            gl_Position = projectionMatrix * p;
+                            gl_PointSize = clamp(48.0 / -p.z, 1.5, 5.0) * pixelRatio;
+                        }
+                    `,
+                    fragmentShader: `
+                        void main() {
+                            float d = length(gl_PointCoord - .5) * 2.0;
+                            gl_FragColor = vec4(.85, .94, 1.0, (1.0 - smoothstep(.0, 1.0, d)) * .30);
+                        }
+                    `
+                }));
+                scene.add(motes);
+
+                // Each image follows the cylinder instead of remaining a flat plane.
+                // This also gives the centered image subtly curved edges.
+                const geometry = new THREE.PlaneGeometry(
+                    CARD_W,
+                    CARD_H,
+                    64,
+                    8
+                );
+
+                const cardPositions = geometry.attributes.position;
+
+                for (let i = 0; i < cardPositions.count; i++) {
+                    const x = cardPositions.getX(i);
+                    const y = cardPositions.getY(i);
+                    const angle = x / R;
+
+                    cardPositions.setXYZ(
+                        i,
+                        R * Math.sin(angle),
+                        y,
+                        R * (1 - Math.cos(angle))
+                    );
+                }
+
+                geometry.computeVertexNormals();
+
+                for (let i = 0; i < 11; i++) {
+                    const material = new THREE.ShaderMaterial({
+                        vertexShader: vertex,
+
+                        transparent: true,
+                        side: THREE.DoubleSide,
+
+                        uniforms: {
+                            map: {
+                                value: blank
+                            },
+
+                            imageAspect: {
+                                value: CARD_W / CARD_H
+                            },
+
+                            resolution: {
+                                value: new THREE.Vector2(1, 1)
+                            },
+
+                            time: {
+                                value: 0
+                            }
+                        },
+
+                        fragmentShader: `
+                            varying vec2 vUv;
+                            varying vec3 vWorld;
+
+                            uniform sampler2D map;
+                            uniform float imageAspect;
+                            uniform vec2 resolution;
+                            uniform float time;
+
+                            void main() {
+                                vec2 size = vec2(4.5, 2.65);
+                                float radius = 0.22;
+
+                                // Rounded image corners.
+                                vec2 q = abs((vUv - 0.5) * size)
+                                       - (size * 0.5 - vec2(radius));
+
+                                float d = length(max(q, 0.0))
+                                        + min(max(q.x, q.y), 0.0)
+                                        - radius;
+
+                                float aa = max(fwidth(d), .005);
+                                float alpha = 1.0 - smoothstep(-aa, aa, d);
+
+                                if (alpha < 0.01) discard;
+
+                                // Preserve the existing cover-style image crop.
+                                vec2 uv = vUv;
+                                float aspect = size.x / size.y;
+
+                                if (imageAspect > aspect) {
+                                    uv.x = (uv.x - 0.5) * aspect / imageAspect + 0.5;
+                                } else {
+                                    uv.y = (uv.y - 0.5) * imageAspect / aspect + 0.5;
+                                }
+
+                                vec3 color = texture2D(map, uv).rgb;
+
+                                // Screen position metrics: outer cards receive the prominent glassy flow
+                                float sx = gl_FragCoord.x / resolution.x;
+                                float screenDist = abs(sx - 0.5) * 2.0;
+                                float sideIntensity = smoothstep(0.18, 0.90, screenDist);
+
+                                // Keep outer cards crisp and luminous rather than muddy dark
+                                float screenFade =
+                                    smoothstep(0.0, 0.22, sx) *
+                                    smoothstep(0.0, 0.22, 1.0 - sx);
+
+                                color *= 0.84 + 0.16 * screenFade;
+
+                                // Subtle surface shading reinforces the bowed image geometry.
+                                float side = abs(vUv.x - 0.5) * 2.0;
+                                float surfaceShade = 1.0 - 0.12 * pow(side, 2.4);
+                                color *= surfaceShade;
+
+                                // A soft reflection, not a heavy white overlay.
+                                float reflection =
+                                    exp(-pow((vUv.x - 0.38) * 5.0, 2.0)) *
+                                    smoothstep(0.30, 1.0, vUv.y);
+
+                                color += vec3(0.024) * reflection;
+
+                                // Fine rounded bevel: brighter at the top, darker at the bottom.
+                                float innerDistance = max(-d, 0.0);
+                                // A continuous pearl frame follows the rounded silhouette exactly.
+                                // Slightly thicker side frames hold their shape in perspective.
+                                float borderWidth = mix(.027, .050, sideIntensity);
+                                float frame = 1.0 - smoothstep(borderWidth - aa, borderWidth + aa, innerDistance);
+                                float topLight = smoothstep(.12, .92, vUv.y);
+                                float bevel = exp(-innerDistance * 42.0);
+                                vec3 pearl = mix(vec3(.65, .73, .79), vec3(.98, .99, 1.0), topLight);
+                                float glint = pow(.5 + .5 * sin(vUv.x * 4.5 + vUv.y * 2.0 - time * .25), 10.0);
+                                pearl += vec3(.035) * glint;
+                                // A restrained inner shadow seats the photo beneath the polished rim.
+                                float insetShadow = exp(-pow((innerDistance - borderWidth - .016) / .027, 2.0));
+                                color *= 1.0 - insetShadow * .15;
+                                color = mix(color, pearl, frame * .96);
+                                color += vec3(.035, .040, .045) * bevel * (1.0 - frame);
+
+                                gl_FragColor = vec4(color, alpha);
+                            }
+                        `
+                    });
+
+                    const mesh = new THREE.Mesh(geometry, material);
+                    scene.add(mesh);
+                    cards.push(mesh);
+                }
+
+                function resize() {
+                    const w = stage.clientWidth,
+                        h = stage.clientHeight;
+
+                    renderer.setSize(w, h);
+                    environment.uniforms.viewport.value.set(w, h);
+
+                    camera.aspect = w / h;
+                    cameraBaseZ = remoteView ? 16 : w / h < 1.1 ? 17.5 : 24.1;
+                    camera.position.z = cameraBaseZ;
+                    camera.updateProjectionMatrix();
+
+                    const size = new THREE.Vector2();
+                    renderer.getDrawingBufferSize(size);
+                    viewTarget.setSize(size.x, size.y);
+                    galleryMask.setSize(Math.max(1, Math.round(size.x * .5)), Math.max(1, Math.round(size.y * .5)));
+                    lensMaterial.uniforms.resolution.value.copy(size);
+
+                    holderMaterial.uniforms.resolution.value.copy(size);
+                    handReflection.setSize(Math.max(1, Math.round(size.x * .5)), Math.max(1, Math.round(size.y * .5)));
+
+                    cards.forEach(card => {
+                        card.material.uniforms.resolution.value.copy(size);
+                    });
+                }
+
+                window.addEventListener('resize', resize);
+                resize();
+
+                const mod = (n, m) => ((n % m) + m) % m;
+
+                function updateCards() {
+                    const base = Math.round(position);
+                    if (items.length) {
+                        const left = Math.floor(position);
+                        const a = items[mod(left, items.length)];
+                        const b = items[mod(left + 1, items.length)];
+                        const fraction = position - left;
+                        const envA = environments[a.environment], envB = environments[b.environment];
+                        const liveA = !!envA?.ready;
+                        const liveB = !!envB?.ready;
+                        environment.uniforms.mapA.value = liveA ? envA.texture : a.texture;
+                        environment.uniforms.mapB.value = liveB ? envB.texture : b.texture;
+                        environment.uniforms.aspectA.value = liveA ? 2560 / 1440 : a.aspect;
+                        environment.uniforms.aspectB.value = liveB ? 2560 / 1440 : b.aspect;
+                        environment.uniforms.blend.value = fraction * fraction * (3 - 2 * fraction);
+                    }
+
+                    for (let i = 0; i < cards.length; i++) {
+                        const index = base + i - 5;
+                        const a = (index - position) * STEP;
+                        const mesh = cards[i];
+
+                        mesh.visible = Math.abs(a) < 1.03;
+
+                        if (!mesh.visible) {
+                            continue;
+                        }
+
+                        // Small separation from the backing gives the images a raised surface.
+                        mesh.position.set(
+                            R * Math.sin(a),
+                            -.06,
+                            R * (1 - Math.cos(a)) + .22
+                        );
+
+                        // Keep the correct cylindrical tangent.
+                        // The tighter radius and curved geometry supply the extra perspective.
+                        mesh.rotation.y = -a;
+
+                        const item = items.length
+                            ? items[mod(index, items.length)]
+                            : null;
+
+                        mesh.userData.item = item;
+
+                        if (item) {
+                            mesh.material.uniforms.map.value = item.texture;
+                            mesh.material.uniforms.imageAspect.value = item.aspect;
+                        }
+                    }
+
+                    const index = items.length ? mod(base, items.length) : -1;
+
+                    if (index !== active) {
+                        active = index;
+                        // Each game shows its own logo over its environment.
+                        const key = index >= 0 ? items[index].environment : null;
+                        for (const logo of gameLogos) {
+                            const on = !!key && logo.dataset.game === key;
+                            logo.classList.toggle('is-active', on);
+                            logo.setAttribute('aria-hidden', String(!on));
+                        }
+                        // ...and its own numbers in the top-right progress card.
+                        if (key) window.raceSummary?.show(key);
+
+                        document.querySelector('#selection').textContent =
+                            index >= 0
+                                ? `${items[index].label}, ${index + 1} of ${items.length}`
+                                : '';
+                    }
+                }
+
+                function setMode(next) {
+                    if (next === 'videos' && !videos.length) {
+                        const pickerEl = document.querySelector('#picker');
+                        if (pickerEl) {
+                            pickerEl.accept = 'video/*';
+                            pickerEl.click();
+                        }
+                        tell('Choose video files to display on the curved gallery.');
+                        return;
+                    }
+
+                    mode = next;
+                    items = mode === 'images' ? images : videos;
+                    active = -1;
+
+                    const imagesBtn = document.querySelector('#images');
+                    if (imagesBtn) {
+                        imagesBtn.setAttribute('aria-pressed', String(mode === 'images'));
+                    }
+
+                    const videosBtn = document.querySelector('#videos');
+                    if (videosBtn) {
+                        videosBtn.setAttribute('aria-pressed', String(mode === 'videos'));
+                    }
+
+                    videos.forEach(item => {
+                        if (mode === 'videos') {
+                            item.video.play().catch(() => {
+                                tell('Tap the gallery to start video playback.');
+                            });
+                        } else {
+                            item.video.pause();
+                        }
+                    });
+
+                    updateCards();
+                }
+
+                const imagesBtn = document.querySelector('#images');
+                if (imagesBtn) imagesBtn.onclick = () => setMode('images');
+
+                const videosBtn = document.querySelector('#videos');
+                if (videosBtn) videosBtn.onclick = () => setMode('videos');
+
+                function scheduleSnap() {
+                    clearTimeout(snapTimer);
+
+                    snapTimer = setTimeout(() => {
+                        target = Math.round(target);
+                    }, 160);
+                }
+
+                // Mouse movement only nudges the view by a few pixels/degrees.
+                // Keeping this separate from drag preserves the carousel interaction.
+                stage.addEventListener('pointermove', e => {
+                    const rect = stage.getBoundingClientRect();
+                    pointerX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    pointerY = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+                });
+
+                stage.addEventListener('pointerleave', () => {
+                    pointerX = 0;
+                    pointerY = 0;
+                });
+
+                stage.addEventListener('wheel', e => {
+                    e.preventDefault();
+
+                    const unit = e.deltaMode === 1
+                        ? 16
+                        : e.deltaMode === 2
+                            ? innerHeight
+                            : 1;
+
+                    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY)
+                        ? e.deltaX
+                        : e.deltaY;
+
+                    target += Math.max(
+                        -180,
+                        Math.min(180, delta * unit)
+                    ) * .0038;
+
+                    scheduleSnap();
+                }, {
+                    passive: false
+                });
+
+                stage.addEventListener('keydown', e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const selected = items[((Math.round(target) % items.length) + items.length) % items.length];
+                        if (selected?.environment) openSelected(selected);
+                        return;
+                    }
+                    if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) {
+                        e.preventDefault();
+
+                        target = e.key === 'Home'
+                            ? 0
+                            : e.key === 'End'
+                                ? Math.max(0, items.length - 1)
+                                : Math.round(target) +
+                                  (e.key === 'ArrowRight' ? 1 : -1);
+
+                        clearTimeout(snapTimer);
+                    }
+                });
+
+                stage.addEventListener('pointerdown', e => {
+                    if (e.button !== 0) {
+                        return;
+                    }
+
+                    drag = true;
+                    lastX = e.clientX;
+                    lastTime = performance.now();
+                    velocity = 0;
+                    moved = 0;
+
+                    clearTimeout(snapTimer);
+                    target = position;
+
+                    stage.setPointerCapture(e.pointerId);
+
+                    stage.focus({
+                        preventScroll: true
+                    });
+
+                    if (mode === 'videos') {
+                        videos.forEach(item => {
+                            item.video.play().catch(() => {});
+                        });
+                    }
+                });
+
+                stage.addEventListener('pointermove', e => {
+                    if (!drag) {
+                        return;
+                    }
+
+                    const now = performance.now();
+                    const dx = e.clientX - lastX;
+                    const unit = remoteView ? Math.max(200, stage.clientWidth * .6) : Math.max(130, stage.clientWidth * .18);
+
+                    moved += Math.abs(dx);
+                    target -= dx / unit;
+                    velocity = (-dx / unit) / Math.max(8, now - lastTime);
+
+                    lastX = e.clientX;
+                    lastTime = now;
+                });
+
+                function release(e) {
+                    if (!drag) {
+                        return;
+                    }
+
+                    drag = false;
+
+                    if (performance.now() - lastTime > 100) {
+                        velocity = 0;
+                    }
+
+                    target = Math.round(
+                        target +
+                        (reduced
+                            ? 0
+                            : Math.max(remoteView ? -.35 : -2, Math.min(remoteView ? .35 : 2, velocity * 190)))
+                    );
+
+                    if (e.type === 'pointerup' && moved < 6) {
+                        const rect = stage.getBoundingClientRect();
+
+                        const mouse = new THREE.Vector2(
+                            (e.clientX - rect.left) / rect.width * 2 - 1,
+                            -(e.clientY - rect.top) / rect.height * 2 + 1
+                        );
+
+                        const ray = new THREE.Raycaster();
+                        // Ray picking uses the same barrel mapping as the final lens pass.
+                        const radius = mouse.lengthSq() * .5;
+                        mouse.multiplyScalar((1 + lensStrength * radius) / lensOverscan);
+                        ray.setFromCamera(mouse, camera);
+
+                        const hit = ray.intersectObjects(
+                            cards.filter(card => card.visible)
+                        )[0];
+
+                        const selected = hit?.object.userData.item;
+                        if (selected?.environment) openSelected(selected);
+
+                    }
+                }
+
+                stage.addEventListener('pointerup', release);
+                stage.addEventListener('pointercancel', release);
+
+                // The games, in carousel order: cover image on the card, in-game capture behind it.
+                function gameItems() {
+                    return [
+                        ['Subway', 'subway', './carousel/maxresdefault.jpg', 1280 / 720, './games/subway/'],
+                        ['Red Light Green Light', 'redlight', './carousel/redlight-cover.jpeg', 1200 / 600, './games/squid/red-light/'],
+                        ['Jump Rope', 'jumprope', './carousel/jumprope-cover.jpeg', 1920 / 1080, './games/squid/jump-rope/'],
+                        ['Track & Field', 'track', './carousel/track-cover.png', 1200 / 624, './games/squid/track/']
+                    ].map(([label, key, cover, aspect, href]) => {
+                        const texture = loader.load(cover, () => {
+                            if (mode === 'images') updateCards();
+                        });
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                        return { label, environment: key, texture, aspect, href };
+                    });
+                }
+
+                // Share the same renderer and gesture physics with the phone controller.
+                let lastPublished = null, lastPublishTime = 0, remoteInitialized = !remoteView;
+                function remoteSend(message) {
+                    if (remoteView) parent.postMessage(message, location.origin);
+                    else hostBridge.send(message);
+                }
+                function publishSelection() {
+                    const selected = items[mod(Math.round(target), items.length)];
+                    remoteSend({t: 'carousel-state', position: target, label: selected?.label, game: selected?.environment});
+                }
+                function openSelected(selected) {
+                    if (remoteView) remoteSend({t: 'carousel-pick', game: selected.environment});
+                    else if (window.phoneGate?.ready) window.gameAbout.open(selected);
+                }
+                function receiveRemote(m) {
+                    if (!remoteView && (!hostBridge.active || (m.hostId && m.hostId !== hostBridge.id))) return;
+                    if (m.t === 'carousel-state' && remoteView && Number.isFinite(m.position) && !drag) {
+                        target = m.position; lastPublished = target; remoteInitialized = true; publishSelection();
+                    }
+                    if (!remoteView && m.t === 'carousel-move' && m.clientId === hostBridge.clientId && Number.isFinite(m.position)) {
+                        clearTimeout(snapTimer); target = Math.max(-100000, Math.min(100000, m.position)); lastPublished = target;
+                    }
+                    if (!remoteView && m.t === 'carousel-pick' && m.clientId === hostBridge.clientId) {
+                        const selected = items.find(item => item.environment === m.game);
+                        if (selected) openSelected(selected);
+                    }
+                    if (!remoteView && ['hello', 'carousel-sync'].includes(m.t)) publishSelection();
+                }
+                if (remoteView) {
+                    addEventListener('message', e => {
+                        if (e.origin === location.origin && e.source === parent) receiveRemote(e.data || {});
+                    });
+                    parent.postMessage({t: 'carousel-loaded'}, location.origin);
+                } else {
+                    const offMessages=hostBridge.onMessage(receiveRemote);
+                    const offConnection=hostBridge.onConnection(state=>{if(state.direct)publishSelection();});
+
+                }
+
+                images = gameItems();
+                if (mode === 'images') setMode('images');
+                tell('Scroll or drag to explore · Arrow keys also work', 2800);
+
+                const picker = document.querySelector('#picker');
+                const editBtn = document.querySelector('#edit');
+
+                if (editBtn && picker) {
+                    editBtn.onclick = () => {
+                        picker.accept = 'image/*,video/*';
+                        picker.click();
+                    };
+                }
+
+                const objectURLs = [];
+
+                function disposeItems(list) {
+                    list.forEach(item => {
+                        item.video?.pause();
+                        item.texture.dispose();
+                    });
+                }
+
+                picker.onchange = async () => {
+                    const files = Array.from(picker.files || []);
+
+                    if (!files.length) {
+                        return;
+                    }
+
+                    tell('Preparing your media…', 0);
+
+                    const newImages = [];
+                    const newVideos = [];
+
+                    let failed = 0;
+
+                    await Promise.all(
+                        files.map(async file => {
+                            const url = URL.createObjectURL(file);
+                            objectURLs.push(url);
+
+                            try {
+                                if (file.type.startsWith('video/')) {
+                                    const video = document.createElement('video');
+
+                                    video.src = url;
+                                    video.muted = true;
+                                    video.loop = true;
+                                    video.playsInline = true;
+                                    video.preload = 'auto';
+
+                                    await new Promise((resolve, reject) => {
+                                        video.onloadeddata = resolve;
+                                        video.onerror = reject;
+                                        video.load();
+                                    });
+
+                                    const texture = new THREE.VideoTexture(video);
+                                    texture.colorSpace = THREE.SRGBColorSpace;
+
+                                    newVideos.push({
+                                        label: file.name,
+                                        texture,
+                                        aspect: video.videoWidth / video.videoHeight,
+                                        video,
+                                        href: ''
+                                    });
+                                } else if (file.type.startsWith('image/')) {
+                                    const texture = await loader.loadAsync(url);
+
+                                    texture.colorSpace = THREE.SRGBColorSpace;
+                                    texture.anisotropy =
+                                        renderer.capabilities.getMaxAnisotropy();
+
+                                    newImages.push({
+                                        label: file.name,
+                                        texture,
+                                        aspect: texture.image.width / texture.image.height,
+                                        href: ''
+                                    });
+                                }
+                            } catch {
+                                failed++;
+                            }
+                        })
+                    );
+
+                    if (newImages.length) {
+                        disposeItems(images);
+                        images = newImages;
+                    }
+
+                    if (newVideos.length) {
+                        disposeItems(videos);
+                        videos = newVideos;
+                    }
+
+                    position = target = 0;
+
+                    if (newImages.length) {
+                        setMode('images');
+                    } else if (newVideos.length) {
+                        setMode('videos');
+                    }
+
+                    tell(
+                        failed
+                            ? 'Some files could not be opened. Try standard JPEG, PNG, or MP4 files.'
+                            : 'Gallery updated'
+                    );
+
+                    picker.value = '';
+                };
+
+                let previous = performance.now();
+
+                function animate(now) {
+                    requestAnimationFrame(animate);
+
+                    if (window.galleryIntro?.shouldRender && !window.galleryIntro.shouldRender(now)) return;
+                    const dt = Math.min((now - previous) / 1000, .05);
+                    previous = now;
+                    const elapsed = now * 0.001;
+                    if (remoteInitialized && target !== lastPublished && now - lastPublishTime > 32) {
+                        lastPublished = target; lastPublishTime = now;
+                        if (remoteView) { remoteSend({t: 'carousel-move', position: target}); publishSelection(); }
+                        else publishSelection();
+                    }
+
+                    if (!document.hidden) {
+                        const ease = reduced
+                            ? 1
+                            : 1 - Math.exp(-(drag ? 22 : 10) * dt);
+
+                        const oldPosition = position;
+                        position += (target - position) * ease;
+                        const speed = reduced ? 0 : (position - oldPosition) / Math.max(dt, .001);
+                        const impulse = Math.tanh(speed * .18);
+                        scrollImpulse += (impulse - scrollImpulse) * (1 - Math.exp(-dt * 9));
+                        // Damped physical follow-through: the body turns, hands lag, then settle.
+                        if (reduced) {
+                            handSway = handSwayVelocity = headSway = 0;
+                        } else {
+                            handSwayVelocity += ((scrollImpulse - handSway) * 48 - handSwayVelocity * 12) * dt;
+                            handSway += handSwayVelocity * dt;
+                            headSway += (scrollImpulse - headSway) * (1 - Math.exp(-dt * 3.5));
+                        }
+                        environment.uniforms.travel.value = headSway;
+                        lensMaterial.uniforms.movement.value = Math.abs(headSway);
+
+                        if (Math.abs(target - position) < .00001) {
+                            position = target;
+                        }
+
+                        updateCards();
+
+                        holderMaterial.uniforms.time.value = reduced ? 0 : elapsed;
+                        for (let i = 0; i < cards.length; i++) {
+                            cards[i].material.uniforms.time.value = reduced ? 0 : elapsed;
+                        }
+
+                        // A deliberately tiny, damped look response gives the page
+                        // the feeling of being held by a person instead of a tripod.
+                        if (reduced) { pointerX = 0; pointerY = 0; }
+                        const pointerSpeed = Math.hypot(pointerX - smoothPointerX, pointerY - smoothPointerY);
+                        environment.uniforms.wake.value += (Math.min(1, pointerSpeed * 2) - environment.uniforms.wake.value) * (1 - Math.exp(-dt * 5));
+                        smoothPointerX += (pointerX - smoothPointerX) * Math.min(1, dt * 4.5);
+                        smoothPointerY += (pointerY - smoothPointerY) * Math.min(1, dt * 4.5);
+                        camera.position.x = smoothPointerX * .10 + headSway * .10;
+                        camera.position.y =
+                            (reduced ? 0 : Math.sin(elapsed * 0.55) * 0.018) -
+                            smoothPointerY * 0.045;
+                        camera.position.z = cameraBaseZ + Math.abs(headSway) * .12;
+                        camera.lookAt(
+                            smoothPointerX * .13 + headSway * .20,
+                            -smoothPointerY * .06,
+                            0
+                        );
+                        camera.rotation.z = -smoothPointerX * .0035 - headSway * .007;
+
+                        if (handsMixer) {
+                            handsMixer.update(dt);
+                        }
+
+                        if (handsModel) {
+                            // Very slow, natural sway layered over the tuned home pose:
+                            // gentle breathing on the whole body, a long-period lean on
+                            // Z and a lazy yaw, plus hands that lag the mouse by a hair
+                            // so they read as alive instead of glued to the view.
+                            const breathe = reduced
+                                ? 0
+                                : Math.sin(elapsed * 2.4) * 0.012;
+                            const leanZ = reduced
+                                ? 0
+                                : Math.sin(elapsed * 0.42) * 0.012;
+                            const yawY = reduced
+                                ? 0
+                                : Math.sin(elapsed * 0.21) * 0.014;
+                            const bobX = reduced
+                                ? 0
+                                : Math.sin(elapsed * 0.65) * 0.006;
+
+                            handsModel.rotation.x =
+                                handRX +
+                                (reduced ? 0 : Math.sin(elapsed * 2.15) * 0.005) -
+                                smoothPointerY * .018 + Math.abs(handSway) * .018;
+                            handsModel.rotation.y = yawY - handSway * .05 - smoothPointerX * .015;
+                            handsModel.rotation.z =
+                                handRZ +
+                                leanZ +
+                                smoothPointerX * .022 + handSway * .065;
+                            handsModel.position.y = handY + breathe - Math.abs(handSway) * .045;
+                            handsModel.position.x = bobX + smoothPointerX * .022 - handSway * .09;
+                            handsModel.position.z = handZ + Math.abs(handSway) * .035;
+                            // A restrained white bounce follows the reflective carousel surface.
+                            glassBounce.intensity = .32 + Math.abs(handSway) * .09;
+                            handWarm.intensity = .14 + Math.abs(headSway) * .025;
+                        }
+
+                        environment.uniforms.time.value = reduced ? 0 : elapsed;
+                        environment.uniforms.pointer.value.set(smoothPointerX, smoothPointerY);
+                        motes.rotation.z = reduced ? 0 : Math.sin(elapsed * .07) * .035;
+                        motes.position.y = reduced ? 0 : Math.sin(elapsed * .13) * .3;
+                        if (handsModel) {
+                            camera.layers.set(1);
+                            renderer.setRenderTarget(handReflection);
+                            renderer.setClearColor(0x000000, 0);
+                            renderer.clear();
+                            renderer.render(scene, camera);
+                            renderer.setRenderTarget(null);
+                            camera.layers.set(0);
+                            renderer.setClearColor(remoteView ? 0x0b0b0e : 0x18232d, 1);
+                        }
+                        renderer.setRenderTarget(galleryMask);
+                        renderer.setClearColor(0x000000, 0);
+                        renderer.clear();
+                        renderer.render(galleryMaskScene, camera);
+                        renderer.setClearColor(remoteView ? 0x0b0b0e : 0x18232d, 1);
+                        renderer.setRenderTarget(viewTarget);
+                        renderer.clear();
+                        renderer.render(environmentScene, environmentCamera);
+                        renderer.clearDepth();
+                        renderer.render(scene, camera);
+                        meterMaterial.uniforms.history.value = exposureRead.texture;
+                        meterMaterial.uniforms.dt.value = dt;
+                        renderer.setRenderTarget(exposureWrite);
+                        renderer.clear();
+                        renderer.render(meterScene, environmentCamera);
+                        [exposureRead, exposureWrite] = [exposureWrite, exposureRead];
+                        lensMaterial.uniforms.exposureMap.value = exposureRead.texture;
+                        meterMaterial.uniforms.immediate.value = reduced ? 1 : 0;
+                        renderer.setRenderTarget(null);
+                        renderer.clear();
+                        renderer.render(lensScene, environmentCamera);
+                        if (introAssetsReady) window.galleryIntro?.ready();
+                    }
+                }
+
+                requestAnimationFrame(animate);
+
+                document.addEventListener('visibilitychange', () => {
+                    videos.forEach(item => {
+                        if (document.hidden) {
+                            item.video.pause();
+                        } else if (mode === 'videos') {
+                            item.video.play().catch(() => {});
+                        }
+                    });
+                });
+
+                window.addEventListener(
+                    'pagehide',
+                    () => {
+                        videos.forEach(item => item.video.pause());
+                        objectURLs.forEach(url => URL.revokeObjectURL(url));
+                    },
+                    {
+                        once: true
+                    }
+                );
+            }
+        </script>
+    </body>
+</html>

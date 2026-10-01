@@ -1,0 +1,25 @@
+{
+  "name": "InMotion Beta",
+  "description": "Phone motion connects directly to the PC over local WebRTC. Heroku serves the site and pairing/signaling only. No database.",
+  "stack": "heroku-24",
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "env": {
+    "ARCADE_NO_OPEN": {
+      "value": "1"
+    },
+    "PUBLIC_URL": {
+      "description": "Optional canonical HTTPS origin for a custom domain. Leave unset to use the requested Heroku domain.",
+      "required": false
+    }
+  }
+}

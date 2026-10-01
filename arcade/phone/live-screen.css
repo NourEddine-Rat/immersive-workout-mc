@@ -1,0 +1,47 @@
+/* Live motion, the PC's available actions, and recovery controls. */
+.live-motion-screen {
+  position:fixed; inset:0; width:100%; height:100dvh; max-width:none; max-height:none; margin:0; padding:0;
+  border:0; border-radius:0; background:#000; color:#f7f7f7; overflow-x:hidden; overflow-y:auto; outline:none;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+}
+.live-motion-screen[open] { display:flex; flex-direction:column; }
+.live-motion-screen::backdrop { background:#000; }
+.live-motion-head { position:relative; z-index:1; flex:none; text-align:center; padding:max(42px,calc(env(safe-area-inset-top) + 20px)) 26px 0; }
+.live-game-name { margin:0 0 13px; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:#777; }
+.live-motion-head h1 { margin:0; font-size:clamp(23px,6vw,29px); font-weight:500; letter-spacing:-.025em; line-height:1.2; }
+.live-instruction { color:#838383; font-size:13px; line-height:1.5; max-width:340px; margin:12px auto 0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.live-wave-stage { position:relative; flex:1; min-height:120px; margin:0; }
+.live-wave-stage canvas { display:block; width:100%; height:100%; position:absolute; inset:0; }
+.live-axis { position:absolute; left:17px; color:#585858; font-size:9px; letter-spacing:.12em; }
+.live-axis-x { top:20%; }.live-axis-y { top:50%; }.live-axis-z { top:80%; }
+.live-motion-footer { flex:none; position:relative; padding:0 24px max(26px,calc(env(safe-area-inset-bottom) + 14px)); text-align:center; }
+.live-signal { color:#bbb; font-size:12px; margin-bottom:20px; }
+.live-readings { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); max-width:390px; margin:auto; }
+.live-readings>div+div { border-left:1px solid #ffffff18; }
+.live-readings strong { display:block; font-size:26px; font-weight:400; line-height:1.2; font-variant-numeric:tabular-nums; }
+.live-readings span { display:block; margin-top:8px; color:#686868; font-size:8px; letter-spacing:.07em; }
+.live-back-hint { margin:27px 0 0; color:#686868; font-size:11px; }
+.live-preview-note { margin:9px 0 0; color:#969696; font-size:9px; }
+@media(max-height:620px) { .live-motion-head { padding-top:max(24px,env(safe-area-inset-top)); } .live-game-name { margin-bottom:8px; } .live-motion-head h1 { font-size:22px; } .live-instruction { font-size:11px; margin-top:8px; } .live-motion-footer { padding-bottom:max(15px,env(safe-area-inset-bottom)); } .live-signal { margin-bottom:12px; } .live-back-hint { margin-top:18px; } }
+@media(orientation:landscape) and (max-height:519px) { .live-motion-head { padding-top:12px; } .live-game-name { display:none; } .live-instruction { margin-top:5px; } .live-motion-footer { padding-bottom:10px; } .live-readings strong { font-size:20px; } .live-back-hint { margin-top:10px; } .live-signal { margin-bottom:8px; } }
+.live-return-prompt { position:fixed; inset:0; width:min(330px,calc(100% - 40px)); max-height:calc(100dvh - 48px); margin:auto; padding:25px 23px; overflow:auto; border:1px solid #ffffffe0; border-radius:29px; background:linear-gradient(135deg,#ffffffb0,#ffffff40),#f4f1f9e6; color:#29232f; text-align:center; font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif; box-shadow:0 24px 70px #0005,inset 0 1px 0 white; backdrop-filter:blur(28px) saturate(1.5); -webkit-backdrop-filter:blur(28px) saturate(1.5); }
+.live-return-prompt::backdrop { background:#0005; backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); }
+.live-return-icon { display:grid; place-items:center; width:52px; height:52px; margin:0 auto 17px; border-radius:18px; border:1px solid #fff; background:linear-gradient(135deg,#fff,#e8e1f3); box-shadow:inset 0 1px 0 #fff; font-size:30px; color:#766187; }
+.live-return-icon svg { width:25px; height:25px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.live-return-prompt h2 { margin:0 0 10px; font-size:23px; line-height:1.2; font-weight:650; letter-spacing:-.035em; }
+.live-return-prompt p { margin:0; color:#716777; font-size:14px; line-height:1.55; }
+@media(prefers-reduced-transparency:reduce) { .live-return-prompt { background:#f4f1f9; backdrop-filter:none; -webkit-backdrop-filter:none; } .live-return-prompt::backdrop { backdrop-filter:none; -webkit-backdrop-filter:none; } }
+
+.live-game-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:9px; max-width:390px; margin:25px auto 0; }
+.live-game-actions[hidden] { display:none; }
+.live-game-actions button { flex:1 1 130px; width:auto; min-height:46px; margin:0; padding:12px 16px; border-radius:18px; border:1px solid #ffffff35; background:linear-gradient(145deg,#ffffff21,#ffffff0b); box-shadow:inset 0 1px 0 #ffffff12; backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); color:#f0f0f0; font:500 13px/1.3 -apple-system,BlinkMacSystemFont,sans-serif; }
+.live-game-actions button:first-child { background:linear-gradient(145deg,#fffffff5,#ffffffc9); color:#242426; border-color:#fff; }
+.live-game-actions button:disabled { opacity:.45; }
+.live-game-actions button:focus-visible { outline:2px solid #fff; outline-offset:4px; }
+@media(max-height:620px) { .live-game-actions { margin-top:16px; gap:7px; } .live-motion-screen { overflow-y:auto; } }
+/* Recovery and navigation remain available in Safari and home-screen mode. */
+.live-back-button,.live-motion-enable,.live-pocket-button { border:1px solid #ffffff50; border-radius:18px; padding:12px 18px; color:#fff; background:#ffffff12; font:inherit; min-height:44px; }
+.live-back-button { display:block; margin:0 0 18px; }
+.live-motion-enable,.live-pocket-button { margin:12px 6px 0; }
+.live-motion-enable:disabled { opacity:.55; }
+.live-back-button:focus-visible,.live-motion-enable:focus-visible,.live-pocket-button:focus-visible { outline:2px solid #fff; outline-offset:3px; }

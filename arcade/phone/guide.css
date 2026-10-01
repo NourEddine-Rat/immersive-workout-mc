@@ -1,0 +1,47 @@
+/* White glass floats above the welcome screen, with the video kept in its original ratio. */
+.phone-guide {
+  position:fixed; inset:auto 0 max(8px,env(safe-area-inset-bottom)); margin:0 auto; padding:0;
+  width:min(calc(100% - 16px),460px); max-width:100%; height:min(91dvh,790px);
+  max-height:calc(100dvh - max(32px,env(safe-area-inset-top)) - max(8px,env(safe-area-inset-bottom)));
+  border:1px solid #ffffffe0; border-radius:32px; color:#211d2e; overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+  background:linear-gradient(145deg,#ffffffa8,#ffffff30 65%),#f5f3f9db;
+  box-shadow:0 24px 80px #170d3545,0 2px 8px #170d351a,inset 0 1px 0 #fff;
+  backdrop-filter:blur(36px) saturate(1.65); -webkit-backdrop-filter:blur(36px) saturate(1.65);
+}
+.phone-guide[open] { display:flex; flex-direction:column; animation:guide-enter .28s ease-out; }
+.phone-guide::backdrop { background:#1a113e40; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+.guide-topbar { flex:none; height:28px; position:relative; display:flex; align-items:flex-start; justify-content:center; }
+.guide-handle { width:32px; height:4px; border-radius:8px; margin-top:12px; background:#54486928; }
+.guide-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; }
+.guide-scroll::-webkit-scrollbar { display:none; }
+.guide-media { position:relative; isolation:isolate; height:clamp(210px,32dvh,280px); margin:0 12px; border:1px solid #ffffffd0; border-radius:22px; overflow:hidden; background:#231c32; box-shadow:0 5px 18px #22102d14; }
+.guide-video-backdrop { position:absolute; inset:-20%; width:140%; height:140%; object-fit:cover; filter:blur(24px) brightness(.72); opacity:.7; pointer-events:none; z-index:-1; }
+.guide-video { display:block; width:100%; height:100%; object-fit:contain; background:transparent; }
+.guide-video-error { position:absolute; z-index:2; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; background:#21182be6; gap:12px; font-size:13px; text-align:center; }
+.guide-video-error p { margin:0; }
+.guide-video-error button { width:auto; margin:0; padding:10px 18px; background:white; border:0; color:#352448; font-size:13px; }
+.guide-content { padding:22px 24px 14px; }
+.guide-content h2 { margin:0; font-size:27px; line-height:1.12; font-weight:700; letter-spacing:-.045em; }
+.guide-intro { margin:7px 0 21px; font-size:13px; line-height:1.4; color:#7b7389; }
+.guide-steps { list-style:none; margin:0; padding:0; display:grid; gap:18px; }
+.guide-steps li { display:grid; grid-template-columns:40px minmax(0,1fr); gap:13px; align-items:start; }
+.guide-icon { display:grid; place-items:center; width:40px; height:40px; border-radius:14px; border:1px solid #ffffffd9; background:linear-gradient(145deg,#fff9,#e9e3f780); box-shadow:inset 0 1px 0 white,0 2px 6px #31195208; color:#6650b8; }
+.guide-icon img { display:block; width:29px; height:29px; object-fit:contain; }
+.guide-steps h3 { margin:0 0 4px; font-size:14px; font-weight:650; line-height:1.3; letter-spacing:-.012em; }
+.guide-steps p { margin:0; color:#6e667c; font-size:12px; line-height:1.55; }
+.guide-footer { flex:none; padding:14px 20px 18px; border:0; background:transparent; box-shadow:none; }
+.guide-continue { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:49px; padding:12px 18px; margin:0; border:1px solid #8870f0; border-radius:18px; background:linear-gradient(135deg,#7155e5,#5340ca); box-shadow:inset 0 1px 0 #ffffff40,0 5px 14px #5b40b326; color:white; font-family:inherit; font-size:15px; font-weight:600; line-height:1.3; }
+.guide-continue svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.phone-guide button:focus-visible { outline:2px solid #6044ce; outline-offset:2px; }
+@keyframes guide-enter { from { transform:translateY(24px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+@media(max-width:360px) { .guide-content { padding:19px 18px 14px; } .guide-content h2 { font-size:25px; } .guide-steps { gap:16px; } .guide-steps li { gap:11px; grid-template-columns:36px minmax(0,1fr); } .guide-icon { width:36px; height:36px; border-radius:12px; } .guide-steps h3 { font-size:13px; } .guide-footer { padding:12px 16px 16px; } }
+@media(orientation:landscape) and (max-height:519px) { .phone-guide { width:min(680px,94%); } .guide-media { height:210px; } }
+@media(prefers-reduced-motion:reduce) { .phone-guide[open] { animation:none; } }
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) { .phone-guide { background:#f5f3fa; } }
+@media(prefers-reduced-transparency:reduce) { .phone-guide { background:#f5f3fa; backdrop-filter:none; -webkit-backdrop-filter:none; } .phone-guide::backdrop { backdrop-filter:none; -webkit-backdrop-filter:none; } }
+
+.guide-play-pause { position:absolute; bottom:10px; left:10px; z-index:1; display:flex; align-items:center; justify-content:center; gap:6px; width:auto; min-width:82px; height:44px; margin:0; padding:0 13px; border:1px solid #ffffff60; border-radius:99px; background:linear-gradient(135deg,#ffffff40,#ffffff12),#21193060; color:#fff; font:600 12px -apple-system,BlinkMacSystemFont,sans-serif; box-shadow:inset 0 1px 0 #ffffff40,0 3px 12px #0002; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
+.guide-play-pause svg { width:16px; height:16px; fill:currentColor; }
+.guide-play-pause[data-playing=true] .guide-play-symbol,.guide-play-pause[data-playing=false] .guide-pause-symbol { display:none; }
+.guide-play-pause:focus-visible { outline-color:white !important; }

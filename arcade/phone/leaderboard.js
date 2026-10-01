@@ -1,0 +1,10 @@
+const leaderboard=document.createElement('dialog');
+leaderboard.className='leaderboard-dialog';
+leaderboard.setAttribute('aria-labelledby','leaderboardNoticeTitle');
+leaderboard.setAttribute('aria-describedby','leaderboardNoticeText');
+leaderboard.innerHTML=`<div class="leaderboard-scene" aria-hidden="true"><div class="leaderboard-scene-title">Leaderboard<span>The starting lineup</span></div><div class="leaderboard-rays"></div><div class="leaderboard-podium"><div class="leaderboard-place second"><span>?</span><b>2</b></div><div class="leaderboard-place first"><img src="./phone/profile/icons/user.svg" alt=""><b>1</b></div><div class="leaderboard-place third"><span>?</span><b>3</b></div></div><div class="leaderboard-ghost-list"><i></i><i></i><i></i></div></div><div class="leaderboard-dim"></div><div class="leaderboard-notice"><p class="leaderboard-kicker">YOU’RE EARLY</p><h2 id="leaderboardNoticeTitle">The leaderboard<br>is warming up.</h2><p id="leaderboardNoticeText">Online rankings aren’t available yet. Your personal results are saved in Detailed Stats → Games.</p><button type="button" class="leaderboard-play">Keep playing</button><button type="button" class="leaderboard-back">Go back</button></div>`;
+document.body.append(leaderboard);
+window.openLeaderboard=()=>{if(!leaderboard.open)leaderboard.showModal();};
+leaderboard.querySelector('.leaderboard-back').onclick=()=>leaderboard.close();
+leaderboard.querySelector('.leaderboard-play').onclick=()=>{leaderboard.close();window.openController();};
+window.addEventListener('phone-page',()=>{if(leaderboard.open)leaderboard.close();});

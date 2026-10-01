@@ -1,0 +1,11 @@
+Model Information:
+* title:	Subway Surfers Coin
+* source:	https://sketchfab.com/3d-models/subway-surfers-coin-0e9142deb008408f8814acd71abf8018
+* author:	nirvaraj (https://sketchfab.com/nirvaraj)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Subway Surfers Coin" (https://sketchfab.com/3d-models/subway-surfers-coin-0e9142deb008408f8814acd71abf8018) by nirvaraj (https://sketchfab.com/nirvaraj) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

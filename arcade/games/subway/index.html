@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Subway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<script type="importmap">{ "imports": { "three": "../../engine/three/three.module.js" } }</script>
+<script>
+// The boot check. Plain old JavaScript on purpose: it runs on any browser,
+// including one that cannot run the game, and says so — a TV browser that
+// lacks modules or WebGL would otherwise sit on "loading" forever.
+(function () {
+  // Diagnostic messages stay in this browser.
+  function log(line) { if (window.console && console.debug) console.debug(line); }
+  window.__log = log;
+  window.__modern = ('noModule' in document.createElement('script')) && !!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'));
+  log('page ' + location.pathname + location.search + ' | ' + navigator.userAgent + ' | ' + screen.width + 'x' + screen.height);
+  var lines = [];
+  function el(id) { return document.getElementById(id); }
+  function show(html, bad) {
+    var box = el('bootBox'); if (!box) return;
+    box.innerHTML = html; box.className = bad ? 'bad' : '';
+  }
+  var boot = window.__boot = {
+    checks: [],
+    ok: true,
+    check: function (name, pass, fix) { this.checks.push({ name: name, pass: !!pass, fix: fix }); if (!pass) this.ok = false; log('check ' + (pass ? 'ok ' : 'NO ') + name); },
+    errors: [],
+    render: function (extra) {
+      var html = '';
+      for (var i = 0; i < this.checks.length; i++) { var c = this.checks[i]; html += '<div class="chk ' + (c.pass ? 'ok' : 'no') + '">' + (c.pass ? '✓' : '✗') + ' ' + c.name + (c.pass ? '' : ' — ' + c.fix) + '</div>'; }
+      for (var j = 0; j < this.errors.length; j++) html += '<div class="chk no">✗ ' + this.errors[j] + '</div>';
+      show(html + (extra || ''), !this.ok);
+    },
+    progress: function (what, done, total) {
+      var mb = function (n) { return (n / 1048576).toFixed(1); };
+      var pct = total ? Math.round(100 * done / total) : 0;
+      var bar = el('bootBar'); if (bar) bar.style.width = pct + '%';
+      var t = el('bootText'); if (t) t.textContent = 'downloading ' + what + ' · ' + mb(done) + (total ? ' of ' + mb(total) : '') + ' MB';
+      this.lastAt = Date.now();
+      if (pct === 100 || pct % 25 === 0) { if (this._lastPct !== what + pct) { this._lastPct = what + pct; log('download ' + what + ' ' + pct + '%'); } }
+    },
+    step: function (text) { var t = el('bootText'); if (t) t.textContent = text; this.lastAt = Date.now(); log('step ' + text); },
+    fail: function (text) { this.ok = false; if (this.errors.length < 4) this.errors.push(text); log('FAIL ' + text); this.render(); var t = el('bootText'); if (t) t.textContent = 'The game hit an error — tell the developer the red line above.'; }
+  };
+  window.addEventListener('DOMContentLoaded', function () {
+    var canvas = document.createElement('canvas');
+    var gl = null; try { gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'); } catch (e) {}
+    var modern = window.__modern;
+    boot.check('WebGL', !!gl, 'no 3D graphics in this browser — it cannot run the game; cast a laptop tab to the TV instead');
+    boot.check(modern ? 'modern browser' : 'older browser — using the compatibility build', true, '');
+    boot.render();
+    if (!boot.ok) { var t = el('bootText'); if (t) t.textContent = boot.errors.length ? 'The game hit an error — tell the developer the red line above.' : 'This browser cannot run the game.'; }
+    boot.lastAt = Date.now();
+    // if nothing has moved for a while, say so — a slow network is not a broken game
+    setInterval(function () {
+      if (!boot.ok || window.__gameUp) return;
+      var idle = (Date.now() - boot.lastAt) / 1000;
+      var t = el('bootText');
+      if (t && idle > 20 && !/^still/.test(t.textContent)) t.textContent = 'still ' + (t.textContent || 'loading') + ' — the network is slow, hold on';
+    }, 5000);
+  });
+  window.addEventListener('error', function (e) {
+    log('error ' + (e.message || e.error || 'error') + (e.filename ? ' (' + String(e.filename).replace(/^.*\//, '') + ':' + e.lineno + ':' + e.colno + ')' : '') + (e.error && e.error.stack ? '\n' + String(e.error.stack).slice(0, 600) : ''));
+    if (window.__gameUp) return;
+    var where = e.filename ? ' (' + String(e.filename).replace(/^.*\//, '') + ':' + e.lineno + ':' + e.colno + ')' : '';
+    boot.fail('The game could not start: ' + (e.message || e.error || 'error') + where);
+  });
+  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; log('rejection ' + (r && r.message || r || 'error') + (r && r.stack ? '\n' + String(r.stack).slice(0, 600) : '')); if (!window.__gameUp) boot.fail('The game could not start: ' + (r && r.message || r || 'error')); });
+  // console.warn / console.error go to the server too
+  (function () { var c = window.console; if (!c) return; ['warn', 'error'].forEach(function (k) { var o = c[k]; c[k] = function () { try { log(k + ' ' + Array.prototype.slice.call(arguments).map(function (a) { return typeof a === 'string' ? a : (a && a.message) || JSON.stringify(a); }).join(' ').slice(0, 600)); } catch (e) {} if (o) o.apply(c, arguments); }; }); })();
+})();
+</script>
+<style>
+  :root {--hud: #f7a52a; --hud2: #ffd35b; --ink: #fff; --shadow: 0 2px 0 #3a1d00, 0 0 12px rgba(0,0,0,0.5); --px: "Press Start 2P", "Menlo", ui-monospace, monospace;}
+  * {box-sizing: border-box;}
+  html, body {margin: 0; height: 100%; background: #0b1020; overflow: hidden; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; color: var(--ink);}
+  #gl {position: fixed; top: 0; left: 0; right: 0; bottom: 0; inset: 0; width: 100%; height: 100%; display: block;}
+  #lines {position: fixed; top: 0; left: 0; right: 0; bottom: 0; inset: 0; width: 100%; height: 100%; pointer-events: none;}
+
+  .hud {position: fixed; pointer-events: none; font-family: "Press Start 2P", "Menlo", ui-monospace, monospace; font-family: var(--px); text-shadow: 0 2px 0 #3a1d00, 0 0 12px rgba(0,0,0,0.5); text-shadow: var(--shadow);}
+  #topLeft {top: 24px; left: 26px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; gap: 10px; font-size: 20px; color: #ffd35b; color: var(--hud2);}
+  /* the counter wears the coin itself — models/subway_surfers_coin/coin.lite.icon.png,
+     the face cut out of the very texture the 3D coin is painted with */
+  #topLeft .coin {width: 24px; height: 24px; background: url("./models/coin/coin.lite.icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 2px 3px rgba(0,0,0,0.65)); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.65));}
+  #topCenter {top: 26px; left: 50%; -webkit-transform: translateX(-50%); transform: translateX(-50%); width: min(56vw, 900px); text-align: center;}
+  #level {font-size: 20px; color: #f7a52a; color: var(--hud); letter-spacing: 0.08em;}
+  .progress {display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; margin-top: 12px; font-size: 11px; color: #ddd; display: grid; grid-template-columns: auto 1fr auto; gap: 10px;}
+  .progress .track {-webkit-box-flex: 1; -webkit-flex: 1; flex: 1; margin: 0 10px;}
+  .progress .track {height: 10px; border: 2px solid #3a2a12; background: rgba(0,0,0,0.45); border-radius: 6px; overflow: hidden;}
+  .progress #bar {height: 100%; width: 0; background: -webkit-linear-gradient(left, #ff7a1a, #ffd35b); background: linear-gradient(90deg, #ff7a1a, #ffd35b); border-radius: 4px;}
+  #topRight {top: 24px; right: 26px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; align-items: flex-end; gap: 14px; width: 152px;}
+  /* the phone card sets the width; the numbers and the profile line hang off its two edges */
+  #stats {width: 100%; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end; gap: 10px; padding: 0 4px; box-sizing: border-box;}
+  #dist {font-size: 18px; color: #ffd35b; color: var(--hud2);}
+  /* the link card: a word and a line, nothing to read mid-run (pocket.js draws it) */
+  /* the phone link: dark frosted glass, the same recipe as the carousel's top-right cards, a shade darker */
+  #pose {width: 152px; height: 62px; border: 1px solid rgba(255,255,255,0.30); border-radius: 12px; background: -webkit-linear-gradient(-55deg, rgba(40,60,68,0.52), rgba(8,18,24,0.46)); background: linear-gradient(145deg, rgba(40,60,68,0.52), rgba(8,18,24,0.46)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 8px 24px rgba(7,24,31,0.35), inset 0 0 24px rgba(70,190,210,0.07); -webkit-backdrop-filter: blur(9px) saturate(0.8); backdrop-filter: blur(9px) saturate(0.8);}
+  #who {width: 100%; font: 10px ui-monospace, Menlo, monospace; color: #8b97a8; text-shadow: none; display: -webkit-box; display: -webkit-flex; display: flex; gap: 6px; -webkit-box-align: center; -webkit-align-items: center; align-items: center; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; pointer-events: auto;}
+  #whoText {overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
+  #newProfile {font: inherit; color: #cfe9d8; background: none; border: 1px solid #ffffff26; border-radius: 5px; padding: 2px 5px; cursor: pointer;}
+
+  @keyframes pulse { from {opacity:.55;} to {opacity:1;} }
+  @-webkit-keyframes pulse { from {opacity:.55;} to {opacity:1;} }
+
+  #hint {bottom: 12vh; left: 50%; -webkit-transform: translateX(-50%); transform: translateX(-50%); text-align: center; --urg: 0;}
+  #hint[hidden] {display: none;}
+  #hintArrow {font-size: -webkit-calc(46px + 30px * var(--urg)); font-size: calc(46px + 30px * var(--urg)); font-size: -webkit-calc(46px + 30px * var(--urg)); font-size: calc(46px + 30px * var(--urg)); color: #ff8a1f; line-height: 1; margin-bottom: 4px; text-shadow: 0 3px 0 #5a2b00, 0 0 18px rgba(255,140,30,0.7);}
+  #hintText {font-size: 22px; color: #fff; margin-top: 20px; letter-spacing: 0.06em;}
+  #hint[data-kind="dodge"], #hint[data-kind="hop"] {color:#7aa2ff;}
+  #hint[data-kind="ride"], #hint[data-kind="riding"] {color:#7ef0b6;} #hint[data-kind="ride"] #hintArrow, #hint[data-kind="riding"] #hintArrow {color:#7ef0b6;}
+  #hint[data-kind="dog"] {color:#ff6b5e; -webkit-animation: pulse .45s ease-in-out infinite alternate; animation: pulse .45s ease-in-out infinite alternate;}
+
+  #overlay {position: fixed; top: 0; left: 0; right: 0; bottom: 0; inset: 0; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; display: grid; place-items: center; background: rgba(6,8,18,0.55); backdrop-filter: blur(3px); text-align: center; padding: 24px;}
+  #overlay[hidden] {display: none;}
+  .card {background: rgba(10,12,22,0.88); border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; padding: 22px 26px; max-width: 440px;}
+  #overlayTitle {font-family: "Press Start 2P", "Menlo", ui-monospace, monospace; font-family: var(--px); font-size: 28px; font-size: clamp(20px, 3.4vw, 28px); color: #ffd35b; color: var(--hud2); text-shadow: 0 4px 0 #5a2b00, 0 0 24px rgba(255,170,40,0.5); margin: 0 0 12px; line-height: 1.25; word-spacing: -0.32em;}
+  #overlayText {font-size: 14px; line-height: 1.45; color: #e9eef5;}
+  #overlayText p {margin: 0 0 8px;}
+  .why {color: #ffb066; font-size: 12.5px; margin: 8px 0 4px;}
+  .ar {direction: rtl; font-family: -apple-system, "SF Arabic", "Geeza Pro", system-ui, sans-serif; font-size: 14.5px; color: #c3d3dd; margin-top: 6px; line-height: 1.5;}
+  .qr-wrap {display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; margin: 10px auto 8px;}
+  .qr-card {background: #ffffff; border-radius: 10px; padding: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.55); line-height: 0; display: inline-block;}
+  .qr-card svg {display: block; width: 135px; height: 135px;}
+  .url-wrap {display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; margin: 0 0 10px;}
+  .url {display: -webkit-inline-box; display: -webkit-inline-flex; display: inline-flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; justify-content: center; font: 400 9.5px/1.3 ui-monospace, Menlo, Monaco, Consolas, monospace; color: #8fa0b5; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 999px; padding: 2px 10px; max-width: min(360px, 90vw); user-select: all; word-break: break-all; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.25); letter-spacing: -0.01em;}
+  .wait {color: #9aa6b8; font-size: 12px; margin-top: 6px; -webkit-animation: pulse 1s infinite alternate; animation: pulse 1s infinite alternate;}
+  .key {display: inline-block; font-family: "Press Start 2P", "Menlo", ui-monospace, monospace; font-family: var(--px); font-size: 12px; color: #1b1200; background: #ffd35b; background: var(--hud2); padding: 6px 9px; border-radius: 6px; box-shadow: 0 3px 0 #a86d00;}
+  .btns {display: -webkit-box; display: -webkit-flex; display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;}
+  .btn {font-family: "Press Start 2P", "Menlo", ui-monospace, monospace; font-family: var(--px); font-size: 11px; padding: 11px 14px; border-radius: 8px; border: none; cursor: pointer; background: #2a3145; color: #e9eef5; box-shadow: 0 3px 0 #161b28;}
+  .btn.primary {background: #ffd35b; background: var(--hud2); color: #1b1200; box-shadow: 0 3px 0 #a86d00;}
+  .btn:active {-webkit-transform: translateY(2px); transform: translateY(2px); box-shadow: none;}
+  table.prof {margin: 0 auto 10px; border-collapse: collapse; font-size: 14.5px; text-align: left;}
+  table.prof td {padding: 4px 10px; border-bottom: 1px solid #ffffff14;}
+  table.prof td:first-child {color: #9aa6b8;}
+
+  /* ---- profiling ---- */
+  body.scanning #topLeft, body.scanning #topCenter, body.scanning #stats, body.scanning #hint {display: none;}
+
+  #lookText {position: fixed; left: 50%; top: 27%; -webkit-transform: translate(-50%, -50%) scale(var(--s, 1)); transform: translate(-50%, -50%) scale(var(--s, 1)); -webkit-transform: translate(-50%, -50%) scale(var(--s, 1)); transform: translate(-50%, -50%) scale(var(--s, 1)); font-family: "Press Start 2P", "Menlo", ui-monospace, monospace; font-family: var(--px); font-size: 110px; font-size: clamp(44px, 9vw, 110px); color: #ff6b5e; text-shadow: 0 6px 0 #5a0d00, 0 0 40px rgba(255,80,60,0.75); letter-spacing: 0.04em; opacity: 0; pointer-events: none; white-space: nowrap; z-index: 5;}
+  #lookAr {position: fixed; left: 50%; top: 80%; -webkit-transform: translateX(-50%); transform: translateX(-50%); font-size: 40px; font-size: clamp(22px, 3.5vw, 40px); color: #ffd35b; text-shadow: 0 2px 8px #000; opacity: 0; pointer-events: none; direction: rtl; font-family: -apple-system, "SF Arabic", "Geeza Pro", system-ui, sans-serif; z-index: 5;}
+  #vignette {position: fixed; top: 0; left: 0; right: 0; bottom: 0; inset: 0; pointer-events: none; background: -webkit-radial-gradient(center, ellipse cover, transparent 45%, rgba(120,0,0,0.55) 100%); background: radial-gradient(ellipse at center, transparent 45%, rgba(120,0,0,0.55) 100%); opacity: 0; -webkit-transition: opacity .25s; transition: opacity .25s;}
+  #dev {position: fixed; left: 18px; bottom: 14px; display: -webkit-box; display: -webkit-flex; display: flex; gap: 8px; -webkit-box-align: center; -webkit-align-items: center; align-items: center; background: rgba(8,10,20,0.7); border: 1px solid #ffffff22; border-radius: 8px; padding: 6px 10px; font: 12px ui-monospace, Menlo, monospace; color: #c3d3dd; z-index: 6;}
+  #dev[hidden] {display: none;}
+  #dev span:first-child {color: #ffd35b; font-weight: 700;}
+  #dev input {width: 52px; font: inherit; background: #151a28; color: #fff; border: 1px solid #445; border-radius: 6px; padding: 3px 6px;}
+  #dev button {font: inherit; background: #2a3145; color: #eef4f8; border: none; border-radius: 6px; padding: 4px 9px; cursor: pointer;}
+  #dev .k {color: #9aa6b8;}
+  #bootBox .chk {font: 13px ui-monospace, Menlo, monospace; color: #7ef0b6; text-align: left;}
+  #bootBox .chk.no {color: #ff6b5e;}
+  #bootBox.bad {margin-bottom: 8px;}
+  #bootTrack {height: 10px; border: 2px solid #3a2a12; background: rgba(0,0,0,0.45); border-radius: 6px; overflow: hidden; margin: 12px 0 8px;}
+  #bootBar {height: 100%; width: 0; background: -webkit-linear-gradient(left, #ff7a1a, #ffd35b); background: linear-gradient(90deg, #ff7a1a, #ffd35b); -webkit-transition: width .2s; transition: width .2s;}
+  #bootText {font: 13px ui-monospace, Menlo, monospace; color: #c3d3dd; min-height: 1.4em;}
+  /* ---- calories and the fire ---- */
+  /* The counter and the banner wear the token's own face — models/subway_surfers-fire/fire.lite.icon.png,
+     cut out by bake_lite.py from the very texture the 3D token is painted with. */
+  #kcal {display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; gap: 7px; font-size: 14px; color: #ffb066; -webkit-transform-origin: right center; transform-origin: right center;}
+  #kcal.bump {-webkit-animation: bump .7s cubic-bezier(.2,1.6,.4,1); animation: bump .7s cubic-bezier(.2,1.6,.4,1);}
+  @keyframes bump { 0% {-webkit-transform: scale(1); transform: scale(1);} 30% {-webkit-transform: scale(1.5); transform: scale(1.5); color: #fff; text-shadow: 0 0 18px #ff8a1f;} 100% {-webkit-transform: scale(1); transform: scale(1);} }
+  @-webkit-keyframes bump { 0% {-webkit-transform: scale(1);} 30% {-webkit-transform: scale(1.5); color: #fff; text-shadow: 0 0 18px #ff8a1f;} 100% {-webkit-transform: scale(1);} }
+  .flame {display: inline-block; width: 17px; height: 28px; background: url("./models/fire/fire.lite.icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 0 5px rgba(255,130,25,0.8)); filter: drop-shadow(0 0 5px rgba(255,130,25,0.8));}
+  /* the banner: a reward plate with the token hanging over its top edge */
+  #perk {left: 50%; top: 39%; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); text-align: center; z-index: 4; opacity: 0; -webkit-perspective: 700px; perspective: 700px;}
+  #perk[hidden] {display: none;}
+  #perk.in {-webkit-animation: perkIn .34s cubic-bezier(.2,1.5,.4,1) forwards; animation: perkIn .34s cubic-bezier(.2,1.5,.4,1) forwards;}
+  #perk.out {-webkit-animation: perkOut .42s cubic-bezier(.6,-.2,.8,.4) forwards; animation: perkOut .42s cubic-bezier(.6,-.2,.8,.4) forwards;}
+  @keyframes perkIn { 0% {opacity: 0; -webkit-transform: translate(-50%, -50%) scale(.55); transform: translate(-50%, -50%) scale(.55);} 100% {opacity: 1; -webkit-transform: translate(-50%, -50%) scale(1); transform: translate(-50%, -50%) scale(1);} }
+  @-webkit-keyframes perkIn { 0% {opacity: 0; -webkit-transform: translate(-50%, -50%) scale(.55);} 100% {opacity: 1; -webkit-transform: translate(-50%, -50%) scale(1);} }
+  @keyframes perkOut { 0% {opacity: 1; -webkit-transform: translate(-50%, -50%) scale(1); transform: translate(-50%, -50%) scale(1);} 100% {opacity: 0; -webkit-transform: translate(32vw, -40vh) scale(.08); transform: translate(32vw, -40vh) scale(.08);} }
+  @-webkit-keyframes perkOut { 0% {opacity: 1; -webkit-transform: translate(-50%, -50%) scale(1);} 100% {opacity: 0; -webkit-transform: translate(32vw, -40vh) scale(.08);} }
+  /* No card: the track has to stay visible under it. What holds the words
+     together instead is a soft warm haze behind them and a hard shadow on
+     every glyph — readable over a bright sky or a dark tunnel, and you can
+     still see the barrier you are about to meet. */
+  #perk .plate {position: relative; padding: 8px 24px 10px;}
+  #perk .plate:before {content: ""; position: absolute; left: 50%; top: 46%; width: 135%; height: 130%; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); background: -webkit-radial-gradient(center, ellipse cover, rgba(28,10,2,0.5) 0%, rgba(28,10,2,0.28) 42%, rgba(28,10,2,0) 70%); background: radial-gradient(ellipse at center, rgba(28,10,2,0.5) 0%, rgba(28,10,2,0.28) 42%, rgba(28,10,2,0) 70%); pointer-events: none;}
+  #perk .plate > * {position: relative;}
+  #perk .crest {position: relative; width: 92px; height: 152px; margin: 0 auto 4px;}
+  #perkFire {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url("./models/fire/fire.lite.icon.png") no-repeat center / contain; -webkit-filter: drop-shadow(0 8px 20px rgba(255,110,20,0.85)); filter: drop-shadow(0 8px 20px rgba(255,110,20,0.85));}
+  #perk.in #perkFire {-webkit-animation: tokenIn .4s cubic-bezier(.2,1.4,.4,1) both, tokenFloat 1.6s ease-in-out .4s infinite alternate; animation: tokenIn .4s cubic-bezier(.2,1.4,.4,1) both, tokenFloat 1.6s ease-in-out .4s infinite alternate;}
+  /* it lands the way it turns in the world: a flip onto its face */
+  @keyframes tokenIn { 0% {-webkit-transform: rotateY(200deg) scale(.35); transform: rotateY(200deg) scale(.35);} 65% {-webkit-transform: rotateY(0deg) scale(1.14); transform: rotateY(0deg) scale(1.14);} 100% {-webkit-transform: rotateY(0deg) scale(1); transform: rotateY(0deg) scale(1);} }
+  @-webkit-keyframes tokenIn { 0% {-webkit-transform: rotateY(200deg) scale(.35);} 65% {-webkit-transform: rotateY(0deg) scale(1.14);} 100% {-webkit-transform: rotateY(0deg) scale(1);} }
+  @keyframes tokenFloat { from {-webkit-transform: translateY(0); transform: translateY(0);} to {-webkit-transform: translateY(-7px); transform: translateY(-7px);} }
+  @-webkit-keyframes tokenFloat { from {-webkit-transform: translateY(0);} to {-webkit-transform: translateY(-7px);} }
+  #perk .ring {position: absolute; left: 50%; top: 52%; width: 72px; height: 72px; margin: -36px 0 0 -36px; border: 4px solid #ffd35b; border-radius: 50%; opacity: 0;}
+  #perk .ring.r2 {border-color: #ff8a1f;}
+  #perk.in .ring {-webkit-animation: ring .6s ease-out .03s; animation: ring .6s ease-out .03s;}
+  #perk.in .ring.r2 {-webkit-animation: ring .6s ease-out .15s; animation: ring .6s ease-out .15s;}
+  @keyframes ring { 0% {opacity: .85; -webkit-transform: scale(.4); transform: scale(.4);} 100% {opacity: 0; -webkit-transform: scale(6.5); transform: scale(6.5);} }
+  @-webkit-keyframes ring { 0% {opacity: .85; -webkit-transform: scale(.4);} 100% {opacity: 0; -webkit-transform: scale(6.5);} }
+  #perkTitle {font-size: 44px; font-size: clamp(26px, 4.4vw, 44px); color: #ffd35b; color: var(--hud2); text-shadow: 0 5px 0 #5a2b00, 0 3px 10px rgba(0,0,0,0.95), 0 0 34px rgba(255,150,40,0.85); letter-spacing: .04em; margin-top: 6px; line-height: 1.1;}
+  #perkCheer {font-size: 15px; color: #7ef0b6; margin-top: 10px; text-shadow: 0 2px 0 #06301f, 0 2px 8px rgba(0,0,0,0.95), 0 0 20px rgba(80,240,170,0.5);}
+  #perkAr {direction: rtl; font-family: -apple-system, "SF Arabic", "Geeza Pro", system-ui, sans-serif; font-size: 20px; color: #ffd35b; margin-top: 6px; text-shadow: 0 2px 4px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,0.9);}
+  #kgWrap {display: -webkit-box; display: -webkit-flex; display: flex; gap: 2px; -webkit-box-align: center; -webkit-align-items: center; align-items: center;}
+  #kgIn {width: 34px; font: inherit; color: #cfe9d8; background: none; border: 1px solid #ffffff26; border-radius: 5px; padding: 1px 4px; text-align: right; -moz-appearance: textfield;}
+  #kgIn::-webkit-inner-spin-button, #kgIn::-webkit-outer-spin-button {-webkit-appearance: none; margin: 0;}   /* the spinner steals the digits' room */
+  body.scanning #kcal, body.scanning #perk {display: none;}
+  #credit {position: fixed; right: 12px; bottom: 8px; font-size: 10.5px; color: rgba(255,255,255,0.45); pointer-events: auto;}
+  #credit a {color: rgba(255,255,255,0.65);}
+</style>
+</head>
+<body>
+<canvas id="lines"></canvas>
+<div id="vignette"></div>
+<div id="lookText">RUN!</div>
+<div id="lookAr" class="ar-only">الكلب وراك — اركض!</div>
+
+<div class="hud" id="topLeft"><span class="coin"></span><span id="coins">0</span></div>
+<div class="hud" id="topCenter">
+  <div id="level">LEVEL 1</div>
+  <div class="progress"><span>START</span><div class="track"><div id="bar"></div></div><span>FINISH</span></div>
+</div>
+<div class="hud" id="topRight">
+  <canvas id="pose" width="304" height="124"></canvas>
+  <div id="stats"><span id="dist">0m</span><span id="kcal"><i class="flame"></i><span id="kcalN">0</span> kcal</span></div>
+  <div id="who"><span id="whoText">no profile yet</span><label id="kgWrap"><input id="kgIn" type="number" min="30" max="200" step="1">kg</label><button id="newProfile">new</button></div>
+</div>
+<div class="hud" id="perk" hidden><div class="plate">
+  <div class="crest"><span class="ring"></span><span class="ring r2"></span><i id="perkFire"></i></div>
+  <div id="perkTitle">25 KCAL</div>
+  <div id="perkCheer">Keep it burning!</div>
+  <div id="perkAr" class="ar-only">استمر!</div>
+</div></div>
+<div class="hud" id="hint" hidden><div id="hintArrow">▲</div><div id="hintText">JUMP!</div></div>
+
+
+<div id="dev" hidden><span>DEV</span> level <input id="devLevel" type="number" min="1" max="99" value="1"> <button id="devGo">go</button> <span class="k">Space jump · S slide · 1–9 level · +/− · M mode · F fire · T hour</span></div>
+<div id="overlay"><div class="card"><h1 id="overlayTitle">LOADING</h1><div id="overlayText"><div id="bootBox"></div><div id="bootTrack"><div id="bootBar"></div></div><div id="bootText">checking the browser…</div></div><div class="btns" id="overlayBtns" hidden></div></div></div>
+
+<script type="module" src="./game.js"></script>
+</body>
+</html>
