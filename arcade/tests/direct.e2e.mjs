@@ -25,11 +25,22 @@ async function startMotion(phone){
 async function pair(s,browser,phoneSetup){
  const pc=await browser.newPage({viewport:{width:1000,height:700}}),phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  await instrument(pc);await instrument(phone);await returningPhone(phone);
+ await phone.addInitScript(()=>{
+  window.carouselStartedConnected=null;
+  const src=Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype,'src');
+  Object.defineProperty(HTMLIFrameElement.prototype,'src',{...src,set(value){
+   if(new URL(value,location.href).searchParams.get('controller')==='1')window.carouselStartedConnected=window.PhoneConnection?.status.direct===true;
+   src.set.call(this,value);
+  }});
+ });
+ const carouselRequest=phone.waitForRequest(request=>new URL(request.url()).searchParams.get('controller')==='1');
  if(phoneSetup)await phone.addInitScript(phoneSetup);
  await pc.goto(s.base,{waitUntil:'domcontentloaded'});await pc.waitForFunction(()=>/^\d{6}$/.test(document.querySelector('.pair-code')?.textContent));
  const code=await pc.locator('.pair-code').textContent();
  await phone.goto(s.base+'/phone.html?connect='+code,{waitUntil:'domcontentloaded'});
  await phone.waitForFunction(()=>window.PhoneConnection?.status.direct,{},{timeout:20000});
+ await carouselRequest;
+ assert.equal(await phone.evaluate(()=>carouselStartedConnected),true,'the 3D carousel must load after direct pairing');
  return {pc,phone};
 }
 test('motion uses direct unreliable UDP, recovers a dropped channel, and survives signaling-server shutdown',{timeout:90000},async()=>{

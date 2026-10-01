@@ -9,6 +9,11 @@ assert 'rows' not in safe and 'profile' not in safe
 for kind in ['samples','host-state','phone-profile','session-history','host-action']:
  assert serve.rtc_message({**base,'kind':kind}) is None
 assert serve.rtc_message({**base,'description':{'type':'offer','sdp':'not SDP'}}) is None
+diagnostic={'phase':'blocked','ice':'connected','connection':'connected','localCount':2,'remoteCount':2,'reason':'remote-candidate-hidden','profile':{'name':'private'},'rows':[[1,2,3]],'address':'192.168.1.1'}
+safe=serve.rtc_message({**base,'kind':'diagnostic','diagnostic':diagnostic})
+assert set(safe['diagnostic'])=={'phase','ice','connection','localCount','remoteCount','reason'}
+for key,value in [('phase','samples'),('reason','private user information'),('localCount',10000),('remoteCount',True)]:
+ assert serve.rtc_message({**base,'kind':'diagnostic','diagnostic':{**diagnostic,key:value}}) is None
 print('ok')`;
  const result=spawnSync('python3',['-c',script],{cwd:new URL('../',import.meta.url),encoding:'utf8'});
  assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/ok/);

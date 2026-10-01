@@ -78,6 +78,8 @@ class Room:
         self.active = self.profile = self.owner = None
         self.owner_until = self.last_sample = self.first_sample = self.last_status = 0
         self.peer_id = self.phone_instance = None
+        self.diagnostics = {}
+        self.diagnostic_times = {}
         self.touched = time.monotonic()
         self.lock = threading.RLock()
 
@@ -260,7 +262,21 @@ def rtc_message(message):
     if not isinstance(negotiation, str) or not 1 <= len(negotiation) <= 100:
         return None
     result["negotiationId"] = negotiation
-    if kind in ("offer", "answer"):
+    if kind == "diagnostic":
+        data = message.get("diagnostic")
+        if not isinstance(data, dict):
+            return None
+        phases = {"gathered", "verifying", "connected", "blocked"}
+        states = {"new", "checking", "connecting", "connected", "completed", "disconnected", "failed", "closed"}
+        reasons = {""} | {side + reason for side in ("local-", "remote-") for reason in
+                         ("candidate-pending", "candidate-hidden", "vpn-route", "nonlocal-type", "non-udp-route", "nonlocal-address")}
+        if data.get("phase") not in phases or data.get("ice") not in states or data.get("connection") not in states or data.get("reason") not in reasons:
+            return None
+        counts = {key: data.get(key) for key in ("localCount", "remoteCount")}
+        if any(type(value) is not int or not 0 <= value <= 128 for value in counts.values()):
+            return None
+        result["diagnostic"] = {key: data[key] for key in ("phase", "ice", "connection", "reason", "localCount", "remoteCount")}
+    elif kind in ("offer", "answer"):
         description = message.get("description")
         if not isinstance(description, dict) or description.get("type") != kind:
             return None
@@ -438,6 +454,17 @@ class WSMixin:
                     outgoing = rtc_message(message)
                     if not outgoing:
                         continue
+                    if outgoing["kind"] == "diagnostic":
+                        # Bounded connection metadata only. Never log codes, network
+                        # addresses, SDP, identity, profile information or motion.
+                        data = outgoing["diagnostic"]
+                        now = time.monotonic()
+                        if room.diagnostics.get(role) != data and now - room.diagnostic_times.get(role, 0) >= 2:
+                            room.diagnostics[role] = data
+                            room.diagnostic_times[role] = now
+                            session = hashlib.sha256(room.token.encode()).hexdigest()[:10]
+                            print("connection_diagnostic " + json.dumps({"session": session, "role": role, **data}), flush=True)
+                        continue
                     if role == "phone" and outgoing["kind"] == "offer" or role == "console" and outgoing["kind"] == "answer":
                         continue
                     for peer in peers:
@@ -595,7 +622,7 @@ class Handler(WSMixin, SimpleHTTPRequestHandler):
             except ValueError:
                 return self.send_error(400)
             phone_origin = origin if HOSTED or PHONE_SECURE is None else f"https://{PHONE_HOST}:{HTTPS_PORT}"
-            return self._json({"pairCode": room.code, "phoneUrl": f"{phone_origin}/phone.html?connect={room.code}",
+            return self._json({"pairCode": room.code, "connectionId": hashlib.sha256(room.token.encode()).hexdigest()[:10], "phoneUrl": f"{phone_origin}/phone.html?connect={room.code}",
                                "phoneEntry": f"{phone_origin}/phone.html", "hosted": HOSTED, "phoneWarning": None if HOSTED else LOCAL_WARNING,
                                "phoneError": "The secure phone connection is unavailable. Check the PC internet connection and restart start.command to fetch its certificate." if not HOSTED and PHONE_SECURE is False else None,
                                "tv": (origin + "/" if HOSTED else TV_URL or f"http://{lan_ip()}:{HTTP_PORT}/") + "?desktop=1"})

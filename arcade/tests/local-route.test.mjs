@@ -28,3 +28,21 @@ test('privacy-redacted stats require an exact selected-candidate match from this
  assert.equal(selectedLocalRoute(report({address:'',port:9999},{address:''}),known).allowed,false);
  assert.equal(selectedLocalRoute(report({address:'8.8.8.8'},{address:''}),known).allowed,false);
 });
+
+test('Safari fallback ignores an old nominated pair that is no longer writable',()=>{
+ const stats=report();stats.delete('transport');
+ const current={...stats.get('pair'),writable:true};
+ stats.set('stale-remote',{candidateType:'prflx',protocol:'udp',address:'',port:9000});
+ const stale={...current,writable:false,remoteCandidateId:'stale-remote'};
+ const reordered=new Map([['stale-pair',stale],...stats]);reordered.set('pair',current);
+ assert.equal(selectedLocalRoute(reordered).allowed,true);
+ // An explicit selected route always wins, even if an unused route looks safe.
+ reordered.set('transport',{type:'transport',selectedCandidatePairId:'stale-pair'});
+ assert.equal(selectedLocalRoute(reordered).allowed,false);
+});
+
+test('redacted candidate matching tolerates numeric fields encoded as strings but never a different port',()=>{
+ const known={localCandidates:[candidateInfo(candidate('local-123.local'))]};
+ assert.equal(selectedLocalRoute(report({address:'',foundation:123,port:'5000'}),known).allowed,true);
+ assert.equal(selectedLocalRoute(report({address:'',foundation:123,port:'5002'}),known).allowed,false);
+});

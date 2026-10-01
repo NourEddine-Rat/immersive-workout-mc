@@ -31,17 +31,25 @@ export function candidateInfo(candidate){
 export function selectedLocalRoute(report,{localCandidates=[],remoteCandidates=[]}={}){
   const stats=[...report.values()];
   const transport=stats.find(s=>s.type==='transport'&&s.selectedCandidatePairId);
-  const pair=transport?report.get(transport.selectedCandidatePairId):stats.find(s=>s.type==='candidate-pair'&&s.state==='succeeded'&&s.nominated);
+  // Safari may omit selectedCandidatePairId and retain stale nominated pairs.
+  // A succeeded pair marked unwritable is not the route carrying the channel.
+  const candidates=stats.filter(s=>s.type==='candidate-pair'&&s.state==='succeeded'&&s.nominated&&s.writable!==false);
+  const selected=candidates.filter(s=>s.selected===true||s.writable===true);
+  const pair=transport?report.get(transport.selectedCandidatePairId):selected.length===1?selected[0]:candidates.length===1?candidates[0]:null;
   if(!pair||pair.state!=='succeeded')return null;
   const local=report.get(pair.localCandidateId),remote=report.get(pair.remoteCandidateId);
-  const valid=(c,known)=>{
-    if(!c||c.networkType==='vpn'||!['host','prflx'].includes(c.candidateType)||c.protocol?.toLowerCase()!=='udp')return false;
+  const reason=(c,known)=>{
+    if(!c)return 'candidate-pending';
+    if(c.networkType==='vpn')return 'vpn-route';
+    if(!['host','prflx'].includes(c.candidateType))return 'nonlocal-type';
+    if(c.protocol?.toLowerCase()!=='udp')return 'non-udp-route';
     const address=c.address||c.ip;
-    if(address)return localAddress(address);
+    if(address)return localAddress(address)?null:'nonlocal-address';
     // Chrome/Safari may redact IPs in stats. Match the exact selected host candidate
     // to the mDNS/private candidate exchanged for this negotiation, never just its type.
-    return c.candidateType==='host'&&known.some(candidate=>candidate.foundation===c.foundation&&candidate.port===c.port&&candidate.protocol==='udp'&&localAddress(candidate.address));
+    return c.candidateType==='host'&&known.some(candidate=>String(candidate.foundation)===String(c.foundation)&&candidate.port===Number(c.port)&&candidate.protocol==='udp'&&localAddress(candidate.address))?null:'candidate-hidden';
   };
-  if(!valid(local,localCandidates)||!valid(remote,remoteCandidates))return {allowed:false};
+  const localReason=reason(local,localCandidates),remoteReason=reason(remote,remoteCandidates);
+  if(localReason||remoteReason)return {allowed:false,reason:(localReason?'local-':'remote-')+(localReason||remoteReason),pending:[localReason,remoteReason].filter(Boolean).every(r=>['candidate-pending','candidate-hidden'].includes(r))};
   return {allowed:true,protocol:'udp',localType:local.candidateType,remoteType:remote.candidateType,rttMs:Number.isFinite(pair.currentRoundTripTime)?Math.round(pair.currentRoundTripTime*1000):null};
 }
