@@ -22,9 +22,10 @@ async function startMotion(phone){
  await phone.locator('#motionEnable').click();
  await phone.evaluate(()=>{window.testMotion=setInterval(()=>dispatchEvent(new DeviceMotionEvent('devicemotion',{accelerationIncludingGravity:{x:0,y:9.80665,z:0},acceleration:{x:0,y:0,z:0},rotationRate:{alpha:0,beta:0,gamma:0},interval:16})),16);});
 }
-async function pair(s,browser){
+async function pair(s,browser,phoneSetup){
  const pc=await browser.newPage({viewport:{width:1000,height:700}}),phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  await instrument(pc);await instrument(phone);await returningPhone(phone);
+ if(phoneSetup)await phone.addInitScript(phoneSetup);
  await pc.goto(s.base,{waitUntil:'domcontentloaded'});await pc.waitForFunction(()=>/^\d{6}$/.test(document.querySelector('.pair-code')?.textContent));
  const code=await pc.locator('.pair-code').textContent();
  await phone.goto(s.base+'/phone.html?connect='+code,{waitUntil:'domcontentloaded'});
@@ -64,6 +65,28 @@ test('motion uses direct unreliable UDP, recovers a dropped channel, and survive
     assert.ok(messages.every(m=>!('rows' in m)&&!('profile' in m)&&!('actions' in m)));
   }
   assert.deepEqual(posts,[]);
+ }finally{await browser.close();await s.close();}
+});
+
+test('mobile state lag cannot stall pairing and the phone can restart an apparently healthy PC link',{timeout:60000},async()=>{
+ const s=await server(),browser=await launch();
+ try{
+  const {pc,phone}=await pair(s,browser,()=>{
+    const Original=RTCPeerConnection;
+    window.RTCPeerConnection=class extends Original{
+      get connectionState(){const state=super.connectionState;return state==='connected'?'connecting':state;}
+    };
+  });
+  await phone.waitForFunction(()=>document.getElementById('controlStatus')?.textContent==='CONNECTED');
+  assert.equal(await phone.evaluate(()=>testPCs.at(-1).connectionState),'connecting');
+  await startMotion(phone);await pc.waitForFunction(()=>phoneGate.ready);
+  const peers=await pc.evaluate(()=>testPCs.length);
+  await phone.evaluate(()=>PhoneConnection.retry());
+  await pc.waitForFunction(count=>testPCs.length>count,peers);
+  await phone.waitForFunction(()=>PhoneConnection.status.direct);
+  await pc.waitForFunction(()=>phoneGate.ready);
+  assert.equal(await phone.evaluate(()=>PhoneConnection.status.route.allowed),true);
+  assert.equal(await phone.evaluate(()=>sentToServer.some(m=>m.t==='samples')),false);
  }finally{await browser.close();await s.close();}
 });
 

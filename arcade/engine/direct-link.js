@@ -71,7 +71,9 @@ export class DirectLink {
   }
   async acceptSignal(m){
     if(!this.peer||!['hostId','clientId','peerId'].every(key=>m[key]===this.peer[key]))return;
-    if(m.kind==='restart'){if(this.role==='host'&&!this.up&&!this.retryTimer)this.offer();return;}
+    // One side can lose the link before the other notices. A paired phone's
+    // restart request must work even while the PC still considers it connected.
+    if(m.kind==='restart'){if(this.role==='host'&&!this.retryTimer)this.offer();return;}
     if(typeof m.negotiationId!=='string'||m.negotiationId.length>100)return;
     if(m.kind==='offer'&&this.role==='phone'){
       if(m.description?.type!=='offer')return;
@@ -127,7 +129,7 @@ export class DirectLink {
       this.onMessage(m);
     };
   }
-  internal(message){if(this.pc?.connectionState==='connected'&&this.control?.readyState==='open'&&this.control.bufferedAmount<32768){try{this.control.send(JSON.stringify(message));}catch{}}}
+  internal(message){if(this.pc&&this.pc.signalingState!=='closed'&&this.control?.readyState==='open'&&this.control.bufferedAmount<32768){try{this.control.send(JSON.stringify(message));}catch{}}}
   promote(){
     if(this.verified&&this.peerVerified&&this.control?.readyState==='open'&&this.motion?.readyState==='open'&&!this.up){
       clearTimeout(this.retryTimer);this.retryTimer=null;
@@ -160,9 +162,9 @@ export class DirectLink {
     if(!this.up&&now-this.started>12000&&!this.retryTimer)this.unavailable('The devices cannot reach each other over local Wi-Fi. '+HELP);
   }
   send(message){
-    // WebKit can keep a data channel "open" briefly after its peer has closed.
-    // Stop sending immediately, before the asynchronous close handler runs.
-    if(!this.up||this.pc?.connectionState!=='connected')return false;
+    // Trust the verified route and open channel, not an aggregate state that can
+    // lag behind them. signalingState still stops sends synchronously on close.
+    if(!this.up||!this.pc||this.pc.signalingState==='closed')return false;
     const channel=message.t==='samples'?this.motion:this.control;
     if(channel?.readyState!=='open'||channel.bufferedAmount>(message.t==='samples'?4096:262144))return false;
     try{const data=JSON.stringify(message);if(data.length>65536)return false;channel.send(data);return true;}catch{return false;}
