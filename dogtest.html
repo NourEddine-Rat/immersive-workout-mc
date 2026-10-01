@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Subway · dog preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
+<style>
+  :root { --px: "Press Start 2P", "Menlo", ui-monospace, monospace; }
+  html, body { margin: 0; height: 100%; background: #0b1020; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #run { position: fixed; left: 50%; top: 17%; transform: translate(-50%, -50%) scale(var(--s, 1)); font-family: var(--px); font-size: clamp(44px, 9vw, 110px); color: #ff6b5e; text-shadow: 0 6px 0 #5a0d00, 0 0 40px rgba(255,80,60,0.75); letter-spacing: 0.04em; opacity: 0; pointer-events: none; white-space: nowrap; }
+  #runAr { position: fixed; left: 50%; top: 80%; transform: translateX(-50%); font-size: clamp(22px, 3.5vw, 40px); color: #ffd35b; text-shadow: 0 2px 8px #000; opacity: 0; pointer-events: none; direction: rtl; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 45%, rgba(120,0,0,0.55) 100%); opacity: 0; }
+  #panel { position: fixed; left: 16px; bottom: 16px; background: rgba(8,10,20,0.7); border: 1px solid #ffffff22; border-radius: 10px; padding: 12px 14px; font-size: 13px; display: grid; gap: 8px; min-width: 260px; }
+  #panel label { display: flex; justify-content: space-between; gap: 10px; color: #c3d3dd; }
+  #panel input[type=range] { width: 140px; }
+  #panel button { font: 600 12px system-ui; padding: 8px 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #18212e; color: #eef4f8; cursor: pointer; }
+  #panel button.go { background: #ffd35b; color: #1b1200; border-color: transparent; }
+  #hud { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); font: 700 14px ui-monospace, Menlo, monospace; color: #c3d3dd; background: rgba(8,10,20,0.55); padding: 6px 12px; border-radius: 8px; }
+  #note { position: fixed; right: 16px; bottom: 16px; max-width: 320px; font-size: 12.5px; color: #9aa6b8; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="vignette"></div>
+<div id="run">RUN!</div>
+<div id="runAr" class="ar-only">الكلب وراك — اركض!</div>
+<div id="hud">—</div>
+<div id="panel">
+  <button id="look" class="go">Look back now</button>
+  <label>auto loop <input id="auto" type="checkbox" checked></label>
+  <label>speed <input id="speed" type="range" min="4" max="18" value="11"> <span id="speedV">11</span></label>
+  <label>dog closes at <input id="close" type="range" min="0.5" max="4" step="0.1" value="1.8"> <span id="closeV">1.8</span> m/s</label>
+  <label>gap now <b id="gapV">—</b></label>
+  <button id="reset">Reset dog to 16 m</button>
+</div>
+<div id="note">Preview only: the track rolls, the dog runs behind you in your lane and gains at the rate you set. When it gets within 9 m and the track is clear, you turn round to see it — or press the button. The game will ration this (never twice in 16 s, and only when the dog is closer than last time).</div>
+<script type="module" src="./dogtest.js"></script>
+</body>
+</html>
