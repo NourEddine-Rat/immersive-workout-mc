@@ -153,18 +153,18 @@ body.in-steps .figure { width: 130px; height: 130px; }
 @media (max-width: 720px) { .credit { display: none; } }
 
 /* ---- the pocket guide: the right way large in a glass frame, the three wrong ways small beside it ---- */
-.card.wide { width: min(560px, 94vw); }
+.card.wide { width: min(560px, 100%); min-width: 0; }
 .pocket-row { display: flex; align-items: center; justify-content: center; gap: 22px; width: 100%; margin: 20px 0 4px; }
-.guide { display: grid; grid-template-columns: 224px 72px; gap: 8px; }
-.guide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.guide { display: grid; grid-template-columns: 224px 72px; align-items: center; gap: 8px; flex: none; }
+.guide img { display: block; width: 100%; height: auto; object-fit: contain; }
 .guide-right { position: relative; margin: 0; padding: 3px; border-radius: 17px;
     background: linear-gradient(145deg, rgba(255, 255, 255, .62), rgba(255, 255, 255, .16));
     box-shadow: 0 12px 28px rgba(7, 24, 31, .38); }
-.guide-right img { border-radius: 14px; aspect-ratio: 480 / 476; }
+.guide-right img { border-radius: 14px; }
 .guide-right::after { content: ''; position: absolute; inset: 3px; border-radius: 14px; pointer-events: none;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35), inset 0 -36px 44px -26px rgba(7, 24, 31, .35), inset 0 20px 30px -24px rgba(255, 255, 255, .35); }
-.guide-wrong { display: grid; grid-template-rows: repeat(3, 1fr); gap: 8px; }
-.guide-wrong img { border-radius: 11px; opacity: .74; filter: saturate(.85);
+.guide-wrong { display: grid; align-content: center; gap: 8px; }
+.guide-wrong img { border-radius: 11px;
     border: 1px solid rgba(255, 255, 255, .3); box-shadow: 0 4px 12px rgba(7, 24, 31, .28); }
 .rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; text-align: left; max-width: 170px; }
 .rules li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; font-weight: 600; line-height: 1.3; }
