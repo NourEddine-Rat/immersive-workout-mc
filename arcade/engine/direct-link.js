@@ -169,7 +169,10 @@ export class DirectLink {
     if(!pc||this.checking||!['connected','completed'].includes(pc.iceConnectionState))return;
     this.checking=true;
     try{
-      const route=selectedLocalRoute(await pc.getStats(),this);if(this.pc!==pc)return;
+      const report=await pc.getStats();if(this.pc!==pc)return;
+      let selectedPair=null;
+      try{selectedPair=pc.sctp?.transport?.iceTransport?.getSelectedCandidatePair?.();}catch{}
+      const route=selectedLocalRoute(report,{localCandidates:this.localCandidates,remoteCandidates:this.remoteCandidates,peerVerified:this.peerVerified,selectedPair});
       if(route&&!route.allowed){
         this.routeIssue=route.reason;this.diagnostic('verifying');
         if(route.pending){this.up=false;this.verified=false;this.state('verifying','Waiting for the browser to confirm the local connection.');return;}

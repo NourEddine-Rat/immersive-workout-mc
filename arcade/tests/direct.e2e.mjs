@@ -148,6 +148,13 @@ test('a private PC address recovers blocked mDNS discovery in WebKit and survive
      addIceCandidate(candidate){return candidate?.candidate?.includes('.local')?Promise.resolve():super.addIceCandidate(candidate);}
     };
    });
+   if(page===phone)await page.addInitScript(()=>{
+    const stats=RTCPeerConnection.prototype.getStats;
+    RTCPeerConnection.prototype.getStats=async function(...args){
+     const report=await stats.apply(this,args);
+     return new Map([...report].map(([id,c])=>[id,c.type==='local-candidate'?{...c,address:'',foundation:'',port:undefined}:c]));
+    };
+   });
   }
   await pc.goto(s.base,{waitUntil:'domcontentloaded'});await pc.waitForSelector('.pair-qr svg');
   await phone.goto(s.base+'/phone.html?connect='+await pc.locator('.pair-code').textContent(),{waitUntil:'domcontentloaded'});
@@ -159,7 +166,11 @@ test('a private PC address recovers blocked mDNS discovery in WebKit and survive
   await pc.locator('#pair-local-address').fill(address);await pc.locator('.pair-local-form button[type=submit]').click();
   try{await phone.waitForFunction(()=>PhoneConnection.status.direct,{},{timeout:20000});}
   catch(error){
-   for(const page of [pc,phone])console.error(page===pc?'PC route:':'Phone route:',await page.evaluate(async()=>({ice:testPCs.at(-1)?.iceConnectionState,stats:[...(await testPCs.at(-1).getStats()).values()].filter(s=>/candidate|transport/.test(s.type))})));
+   for(const page of [pc,phone])console.error(page===pc?'PC route:':'Phone route:',await page.evaluate(async()=>{
+    const pc=testPCs.at(-1),pair=pc.sctp?.transport?.iceTransport?.getSelectedCandidatePair?.();
+    const describe=c=>c&&Object.fromEntries(['type','protocol','address','port','foundation'].map(k=>[k,c[k]]));
+    return {ice:pc.iceConnectionState,selected:{local:describe(pair?.local),remote:describe(pair?.remote)},stats:[...(await pc.getStats()).values()].filter(s=>/candidate|transport/.test(s.type))};
+   }));
    throw error;
   }
   assert.equal(await phone.evaluate(()=>PhoneConnection.status.route.allowed),true);

@@ -50,6 +50,20 @@ test('a redacted reverse path needs verified peer proof and an exact announced U
  for(const invalid of [{...remote,port:1234},{...remote,protocol:'tcp'},{...remote,networkType:'vpn'},{...remote,address:'8.8.8.8'},{...remote,candidateType:'relay'},{...remote,candidateType:'host'}])assert.equal(selectedLocalRoute(report({},invalid),known).allowed,false);
  assert.equal(selectedLocalRoute(report({address:''},remote),known).allowed,false,'the local side must still be independently verified');
  assert.equal(selectedLocalRoute(report({},remote),{peerVerified:true}).allowed,false,'unannounced candidates cannot use peer proof');
+ assert.equal(selectedLocalRoute(report({},{...remote,address:'redacted-ip.invalid'}),known).allowed,true);
+ assert.equal(selectedLocalRoute(report({},{...remote,address:'redacted-ip.invalid'}),{...known,peerVerified:false}).allowed,false);
+ assert.equal(selectedLocalRoute(report({},{...remote,address:'other.invalid'}),known).allowed,false);
+});
+
+test('the selected ICE transport pair verifies Safari routes when stats hide candidate identity',()=>{
+ const selectedPair={local:{type:'host',protocol:'udp',address:'192.168.1.5',port:5000,foundation:'123'},remote:{type:'host',protocol:'udp',address:'192.168.1.6',port:5001,foundation:'456'}};
+ const hidden={address:'',foundation:'',port:undefined};
+ assert.equal(selectedLocalRoute(report(hidden,hidden),{selectedPair}).allowed,true);
+ assert.equal(selectedLocalRoute(new Map(),{selectedPair}).allowed,true,'the transport API also works when stats omit the selected pair');
+ for(const bad of [{candidateType:'relay'},{protocol:'tcp'},{address:'8.8.8.8'},{networkType:'vpn'}])assert.equal(selectedLocalRoute(report(bad),{selectedPair}).allowed,false,'explicit unsafe stats must still block play');
+ assert.equal(selectedLocalRoute(report(hidden),{selectedPair:{...selectedPair,local:{...selectedPair.local,address:'8.8.8.8'}}}).allowed,false);
+ assert.equal(selectedLocalRoute(report(hidden),{selectedPair:{...selectedPair,local:{...selectedPair.local,type:'relay'}}}).allowed,false);
+ assert.equal(selectedLocalRoute(report(hidden),{selectedPair:null}).allowed,false);
 });
 
 test('Safari fallback ignores an old nominated pair that is no longer writable',()=>{

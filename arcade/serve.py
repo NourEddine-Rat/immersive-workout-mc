@@ -459,7 +459,9 @@ class WSMixin:
                         # addresses, SDP, identity, profile information or motion.
                         data = outgoing["diagnostic"]
                         now = time.monotonic()
-                        if room.diagnostics.get(role) != data and now - room.diagnostic_times.get(role, 0) >= 2:
+                        previous = room.diagnostics.get(role, {})
+                        connected_now = data["phase"] == "connected" and previous.get("phase") != "connected"
+                        if previous != data and (connected_now or now - room.diagnostic_times.get(role, 0) >= 2):
                             room.diagnostics[role] = data
                             room.diagnostic_times[role] = now
                             session = hashlib.sha256(room.token.encode()).hexdigest()[:10]

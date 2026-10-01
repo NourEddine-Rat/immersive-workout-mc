@@ -42,7 +42,7 @@ export function candidateInfo(candidate){
   const parts=line.replace(/^a=/,'').trim().split(/\s+/);
   return {foundation:parts[0].slice(10),protocol:parts[2].toLowerCase(),address:parts[4],port:Number(parts[5])};
 }
-export function selectedLocalRoute(report,{localCandidates=[],remoteCandidates=[],peerVerified=false}={}){
+export function selectedLocalRoute(report,{localCandidates=[],remoteCandidates=[],peerVerified=false,selectedPair=null}={}){
   const stats=[...report.values()];
   const transport=stats.find(s=>s.type==='transport'&&s.selectedCandidatePairId);
   // Safari may omit selectedCandidatePairId and retain stale nominated pairs.
@@ -50,27 +50,41 @@ export function selectedLocalRoute(report,{localCandidates=[],remoteCandidates=[
   const candidates=stats.filter(s=>s.type==='candidate-pair'&&s.state==='succeeded'&&s.nominated&&s.writable!==false);
   const selected=candidates.filter(s=>s.selected===true||s.writable===true);
   const pair=transport?report.get(transport.selectedCandidatePairId):selected.length===1?selected[0]:candidates.length===1?candidates[0]:null;
-  if(!pair||pair.state!=='succeeded')return null;
-  const local=report.get(pair.localCandidateId),remote=report.get(pair.remoteCandidateId);
+  if((!pair||pair.state!=='succeeded')&&!selectedPair)return null;
+  const localStats=pair&&report.get(pair.localCandidateId),remoteStats=pair&&report.get(pair.remoteCandidateId);
   const reason=(c,known)=>{
     if(!c)return 'candidate-pending';
     if(c.networkType==='vpn')return 'vpn-route';
     if(!['host','prflx'].includes(c.candidateType))return 'nonlocal-type';
     if(c.protocol?.toLowerCase()!=='udp')return 'non-udp-route';
     const address=c.address||c.ip;
-    if(address)return localAddress(address)?null:'nonlocal-address';
+    // Chromium uses this reserved, non-resolving name for a concealed prflx IP.
+    // It is missing evidence, never a network address we permit on its own.
+    if(address&&address!=='redacted-ip.invalid')return localAddress(address)?null:'nonlocal-address';
     // Chrome/Safari may redact IPs in stats. Match the exact selected host candidate
     // to the mDNS/private candidate exchanged for this negotiation, never just its type.
     return c.candidateType==='host'&&known.some(candidate=>String(candidate.foundation)===String(c.foundation)&&candidate.port===Number(c.port)&&candidate.protocol==='udp'&&localAddress(candidate.address))?null:'candidate-hidden';
   };
-  const localReason=reason(local,localCandidates),remoteReason=reason(remote,remoteCandidates);
+  // Safari statistics can omit or rewrite a local candidate's identity. The ICE
+  // transport exposes the actual selected candidates separately. Use that
+  // authoritative pair, while preserving any explicit unsafe-route evidence.
+  const candidate=(c,stats)=>{
+    if(!c)return stats;
+    const line=typeof c.candidate==='string'?c.candidate.replace(/^a=/,'').trim():'';
+    const parts=line.startsWith('candidate:')?line.split(/\s+/):[];
+    return {candidateType:c.type||parts[parts.indexOf('typ')+1],address:c.address||parts[4],protocol:c.protocol||parts[2],port:c.port??Number(parts[5]),foundation:c.foundation||parts[0]?.slice(10),networkType:stats?.networkType};
+  };
+  const local=candidate(selectedPair?.local,localStats),remote=candidate(selectedPair?.remote,remoteStats);
+  const explicit=r=>r&&!['candidate-pending','candidate-hidden'].includes(r)?r:null;
+  const localReason=explicit(reason(localStats,localCandidates))||reason(local,localCandidates),remoteReason=explicit(reason(remoteStats,remoteCandidates))||reason(remote,remoteCandidates);
+  const rttMs=Number.isFinite(pair?.currentRoundTripTime)?Math.round(pair.currentRoundTripTime*1000):null;
   // When only one side can resolve mDNS, the reverse path is peer-reflexive.
   // Chrome hides that address and gives it a new foundation. The other endpoint
   // must first verify BOTH ends of the selected route and send its proof over
   // this negotiation's encrypted control channel. Match the announced UDP port
   // as well; never accept a missing local proof, unknown port, public or relay path.
   const peerConfirmed=!localReason&&remoteReason==='candidate-hidden'&&remote?.candidateType==='prflx'&&peerVerified&&remoteCandidates.some(c=>c.port===Number(remote.port)&&c.protocol==='udp'&&localAddress(c.address));
-  if(peerConfirmed)return {allowed:true,protocol:'udp',localType:local.candidateType,remoteType:remote.candidateType,remoteVerifiedByPeer:true,rttMs:Number.isFinite(pair.currentRoundTripTime)?Math.round(pair.currentRoundTripTime*1000):null};
+  if(peerConfirmed)return {allowed:true,protocol:'udp',localType:local.candidateType,remoteType:remote.candidateType,remoteVerifiedByPeer:true,rttMs};
   if(localReason||remoteReason)return {allowed:false,reason:(localReason?'local-':'remote-')+(localReason||remoteReason),pending:[localReason,remoteReason].filter(Boolean).every(r=>['candidate-pending','candidate-hidden'].includes(r))};
-  return {allowed:true,protocol:'udp',localType:local.candidateType,remoteType:remote.candidateType,rttMs:Number.isFinite(pair.currentRoundTripTime)?Math.round(pair.currentRoundTripTime*1000):null};
+  return {allowed:true,protocol:'udp',localType:local.candidateType,remoteType:remote.candidateType,rttMs};
 }
