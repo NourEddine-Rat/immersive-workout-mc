@@ -13,6 +13,7 @@
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #101418; color: var(--ink);
     font-family: Inter, -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body.training-loading > :is(#gym, .vignette, .brand, .phone-status, .motion-card, .stage, .track) { visibility: hidden; }
 #gym { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 .vignette { position: fixed; inset: 0; pointer-events: none;
     background: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(6, 10, 14, .55) 100%); }
@@ -98,6 +99,16 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #101418; col
     box-shadow: 0 8px 22px #07181f40; }
 .actions button:hover { filter: brightness(1.06); }
 .actions button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.connection-help { width: 100%; margin-top: 16px; text-align: left; color: var(--soft); font-size: 13px; line-height: 1.45; }
+.connection-help summary { cursor: pointer; color: #fff; font-weight: 600; }
+.connection-help p { margin: 10px 0; }
+.connection-help button { width: 100%; padding: 12px; border: 1px solid #ffffff60; border-radius: 14px;
+    background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(255,255,255,.08)); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.connection-help button:disabled { cursor: default; opacity: .55; }
+.connection-help button:focus-visible, .connection-help summary:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.card:has(.connection-help:not([hidden])) { max-height: calc(100dvh - 140px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ffffff60 transparent; }
+.card:has(.connection-help:not([hidden])) > * { flex-shrink: 0; }
+.card:has(.connection-help:not([hidden])) .visual { width: 150px; height: 150px; margin-top: 16px; }
 
 /* ---- the step track along the bottom ---- */
 .track { position: fixed; left: 50%; bottom: max(26px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 4;
@@ -121,27 +132,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #101418; col
     .visual { width: 160px; height: 160px; }
 }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
-
-/* ---- dev: the preview panel, bottom right ---- */
-.dev { position: fixed; z-index: 20; right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom));
-    display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.dev-toggle { color: #fff; font: 600 11px Inter, system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase;
-    padding: 9px 15px; border-radius: 999px; cursor: pointer; }
-.dev-toggle[aria-expanded="true"] { color: #0d1a20; background: linear-gradient(180deg, #fff, #e8eff1); }
-.dev-panel { width: 268px; max-height: calc(100vh - 140px); overflow: auto; padding: 14px; border-radius: 20px;
-    display: flex; flex-direction: column; gap: 10px; }
-.dev-title { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
-.dev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-.dev-grid button, .dev-seg button, .dev-exit { font: 500 12px Inter, system-ui, sans-serif; color: #fff; text-align: left; cursor: pointer;
-    padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; background: rgba(255, 255, 255, .08); }
-.dev-grid button:hover, .dev-seg button:hover, .dev-exit:hover { background: rgba(255, 255, 255, .16); }
-.dev-grid button[aria-pressed="true"], .dev-seg button[aria-pressed="true"] { color: #0d1a20; background: linear-gradient(180deg, #fff, #e8eff1); }
-.dev-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.dev-seg button { text-align: center; }
-.dev-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--soft); cursor: pointer; }
-.dev-check input { accent-color: #fff; }
-.dev-hint { font-size: 11px; color: var(--faint); }
-.dev-exit { text-align: center; border-color: #ffffff40; background: none; }
 
 /* ---- during the steps the card steps aside: you are in the gym, it is in view ---- */
 .stage { transition: padding .6s cubic-bezier(.22, 1, .36, 1); }

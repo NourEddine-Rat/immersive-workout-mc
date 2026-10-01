@@ -33,6 +33,9 @@ test('calibration follows its player and survives blocked PC storage through pho
   assert.equal(profile.selectUser('two'),null);profile.save(second);
   assert.equal(profile.selectUser('one').created,100);assert.equal(profile.load().created,100);
   assert.equal(profile.selectUser('one',{...first,created:300}).created,300);
+  const trained={...second,created:'2026-10-01T14:00:00.000Z'};
+  assert.equal(profile.selectUser('new-pc-player',trained).created,trained.created,'ISO calibration dates emitted by training restore from the phone');
+  assert.equal(profile.selectUser('new-pc-player',{...first,created:200}).created,trained.created,'an older numeric timestamp cannot replace newer ISO training');
   globalThis.localStorage={getItem(){throw Error('Blocked');},setItem(){throw Error('Blocked');}};
   assert.equal(profile.selectUser('two',second).created,200);assert.equal(profile.load().created,200);
   assert.ok(events.includes('calibration-saved'));

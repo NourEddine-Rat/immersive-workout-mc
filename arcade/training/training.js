@@ -15,14 +15,14 @@
 
 import { hostBridge } from '../engine/host-bridge.js';
 import * as THREE from 'three';
-import { GLTFLoader } from '../engine/three/GLTFLoader.js';
 import { RoomEnvironment } from '../engine/three/RoomEnvironment.js';
-import { MeshoptDecoder } from '../engine/three/libs/meshopt_decoder.module.js';
+import { createAssetLoader, prepareScene } from '../engine/asset-loader.js';
 import { Hands } from '../engine/body/hands.js';
 import { Coach } from './coach.js';
 import { PocketSource, mergeCfg } from '../engine/motion-controller.js';
 import { GENERIC } from '../engine/lib/motion-detector.js';
 import { qrcode } from '../engine/lib/qrcode.js';
+import { createMicrophoneRecovery } from '../engine/lib/microphone-recovery.js';
 import * as Profile from '../engine/profile.js';
 
 const $ = id => document.getElementById(id);
@@ -31,13 +31,23 @@ const ui = {
   visual: $('visual'), ringFill: $('ringFill'), figure: $('figure'), pocketRow: $('pocketRow'), qr: $('qr'), count: $('count'),
   reps: $('reps'), live: $('live'), liveValue: $('liveValue'), liveUnit: $('liveUnit'), flash: $('flash'),
   tiles: $('tiles'), note: $('note'), actions: $('actions'), url: $('url'), track: $('track'),
+  connectionHelp: $('connectionHelp'), microphoneRetry: $('microphoneRetry'), microphoneStatus: $('microphoneStatus'),
 };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 
-/** Only a path on this site: never send anyone elsewhere from a query string. */
-const NEXT = (() => { const n = new URLSearchParams(location.search).get('next'); return n && n.startsWith('/') && !n.startsWith('//') ? n : null; })();
+const GAME_NAMES = { '/games/subway/': 'Subway', '/games/squid/red-light/': 'Red Light, Green Light', '/games/squid/jump-rope/': 'Jump Rope', '/games/squid/track/': 'Track & Field' };
+/** Return to a playable game on this origin after saving training. */
+const NEXT = (() => {
+  const path = new URLSearchParams(location.search).get('next');
+  if (!path || !path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return null;
+  try {
+    const next = new URL(path, location.origin);
+    const pathname = next.pathname.replace(/index\.html$/, '').replace(/\/?$/, '/');
+    return next.origin === location.origin && GAME_NAMES[pathname] ? pathname + next.search : null;
+  } catch { return null; }
+})();
 
 // =================================================================== the gym
 
@@ -80,20 +90,27 @@ function buildLights() {
 }
 
 async function buildGym() {
+  const loader = createAssetLoader({ boot: window.boot });
+  const guideImages = [...document.querySelectorAll('#guide img')];
+  await loader.preload([
+    { url: './gym/training-studio.gltf', label: 'Training studio' },
+    { url: '../engine/body/controller-arms.glb', label: 'Your movement' },
+    { url: '../engine/body/training-coach.glb', label: 'Training coach' },
+    ...guideImages.map(img => ({ url: img.dataset.src, label: 'Pocket guide' })),
+  ]);
+  window.boot.step('Preparing your training');
   buildLights();
-  const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-  try {
-    const gltf = await loader.loadAsync('./gym/training-studio.gltf');
-    gltf.scene.traverse(o => {
-      if (!o.isMesh) return;
-      o.castShadow = o.receiveShadow = true;
-      const m = o.material;
-      if (m && m.emissiveMap) m.emissiveIntensity = m.name === 'walls' ? 3.2 : 1.4;   // the ceiling panels and windows glow
-    });
-    scene.add(gltf.scene);
-  } catch (e) { console.warn('gym model:', e); }
-  try { await hands.load('../engine/body/controller-arms.glb', loader); } catch (e) { console.warn('arms:', e); }
-  try { await coach.load('../engine/body/training-coach.glb'); } catch (e) { console.warn('coach:', e); }
+  const gltf = await loader.loadAsync('./gym/training-studio.gltf');
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = o.receiveShadow = true;
+    const m = o.material;
+    if (m && m.emissiveMap) m.emissiveIntensity = m.name === 'walls' ? 3.2 : 1.4;
+  });
+  scene.add(gltf.scene);
+  await hands.load('../engine/body/controller-arms.glb', loader);
+  await coach.load('../engine/body/training-coach.glb', loader);
+  await Promise.all(guideImages.map(img => loader.loadImage(img.dataset.src, img)));
 }
 
 // ---- you: eyes 1.62 m up, your own arms, on one spot of the open floor (everything is in place: the room is small)
@@ -186,6 +203,7 @@ function setCard(o) {
   if (o.tiles) ui.tiles.innerHTML = o.tiles.map(([v, k]) => `<div class="tile"><b>${v}</b><span>${k}</span></div>`).join('');
   ui.note.hidden = !o.note; if (o.note) ui.note.textContent = o.note;
   ui.url.hidden = !o.url; if (o.url) ui.url.textContent = o.url;
+  ui.connectionHelp.hidden = !o.connection;
   ui.actions.hidden = !o.actions;
   if (o.actions && ui.actions.dataset.key !== o.actions.map(a => a.label).join('|')) {
     ui.actions.dataset.key = o.actions.map(a => a.label).join('|');
@@ -209,7 +227,7 @@ function track(index, preview = false) {
   [...ui.track.children].forEach((c, i) => { c.className = i < index ? 'done' : i === index ? 'now' : ''; });
 }
 addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
+  if (e.key !== 'Enter' || state === 'boot' || state === 'failed') return;
   const b = ui.actions.hidden ? null : ui.actions.querySelector('button.primary');
   if (b) { e.preventDefault(); b.click(); }
 });
@@ -219,15 +237,35 @@ addEventListener('keydown', e => {
 const pocket = new PocketSource();
 pocket.start();
 let state = 'boot', profiling = null, out = null, result = null;
+let connectionReady = false, connectionPrompt = '';
 let paused = 0, pausedAt = 0;                        // the phone dropped out: the routine's clock stops with it
 let flow = 0;                                        // bumped whenever the flow is taken over (a lost phone): a stale await gives up
 let resume = false;                                  // the phone came back mid-routine: carry on from the same step
 const clock = () => performance.now() / 1000 - paused;
-window.__tr = { body, get state() { return state; }, get out() { return out; }, get profile() { return result; }, get profiling() { return profiling; }, pocket };
+const microphone = createMicrophoneRecovery({ onChange: renderConnectionHelp, onRetry: () => {
+  const connection = hostBridge.connection;
+  if (connection.active && connection.paired && !connection.direct) hostBridge.setLocalAddress('');
+} });
+ui.microphoneRetry.onclick = () => microphone.request();
+function renderConnectionHelp() {
+  const connection = hostBridge.connection;
+  const audio = microphone.snapshot;
+  if (audio.pending && (connection.direct || !connection.active || !connection.paired)) microphone.cancel();
+  ui.microphoneRetry.disabled = connection.direct || !connection.active || !connection.paired || audio.pending || !audio.available || audio.granted;
+  ui.microphoneRetry.textContent = connection.direct ? 'Phone connected' : audio.granted ? 'Microphone access stopped' : audio.state === 'idle' ? 'Allow microphone & retry' : audio.buttonLabel;
+  ui.microphoneStatus.textContent = connection.direct ? 'Connected locally. No microphone is needed for training or gameplay.'
+    : !connection.paired ? 'Scan the QR code first. If connecting stalls, try this option.'
+    : audio.state === 'idle' ? 'Optional. Your browser will ask you to allow microphone access.' : audio.message;
+  if (state === 'connect' && connectionReady) {
+    ui.say.textContent = connection.direct ? 'Your phone is connected. Enable motion on its screen to start training.' : connectionPrompt;
+    const retry = ui.actions.querySelector('button.primary');
+    if (retry) retry.disabled = connection.direct;
+  }
+}
+addEventListener('screen-connection', renderConnectionHelp);
+renderConnectionHelp();
+// ---- each screen's card
 
-// ---- each screen's card, on its own: the flow and the dev preview draw the very same thing
-
-const GAME_NAMES = { '/games/subway/': 'Subway', '/games/squid/red-light/': 'Red Light, Green Light', '/games/squid/jump-rope/': 'Jump Rope', '/games/squid/track/': 'Track & Field' };
 /** The opening: what this is, how long, what is coming — and, when a game sent you, which one waits. */
 function welcomeCard() {
   const game = NEXT && GAME_NAMES[NEXT.split('?')[0]];
@@ -237,21 +275,48 @@ function welcomeCard() {
             visual: 'figure', move: 'jog', live: '6', unit: 'moves · about 1 minute' });
   track(-1, true);                                  // the six moves, all still to come
 }
-let phoneUrl = null, phoneCode = null;
+let phoneUrl = null, phoneCode = null, connectionRequest = 0;
+function stopTraining() {
+  if (state === 'failed') return;
+  state = 'failed'; flow++; connectionRequest++;
+  profiling = null; out = null; resume = false;
+  pocket.onEvent = null; pocket.onSample = null;
+  microphone.cancel();
+  document.body.classList.remove('in-steps');
+  document.body.classList.add('training-loading');
+  const stage = document.querySelector('.stage');
+  stage.inert = true; stage.setAttribute('aria-busy', 'true');
+  ui.actions.hidden = true;
+}
+document.addEventListener('webglcontextlost', stopTraining, true);
 async function connectCard(lost) {
+  const request = ++connectionRequest;
+  connectionReady = false;
+  const actions = [
+    { label: 'Retry connection', primary: true, onClick: () => { hostBridge.retryLocal(); connectCard(lost); } },
+    { label: 'Back to games', onClick: () => location.assign('/') },
+  ];
+  setCard({ kicker: 'Connection', title: 'Your phone', say: 'Preparing your connection…', visual: 'none', connection: true, actions });
   {
     let where = { phoneError: 'Could not reach the connection service. Check your network and try again.' };
     try { where = await hostBridge.connectionInfo(true); } catch {}
-    if(where.phoneError){setCard({kicker:'Connection',title:'Phone unavailable',say:where.phoneError,visual:'none',actions:[{label:'Try again',primary:true,onClick:()=>connectCard(lost)}]});return;}
+    if (request !== connectionRequest || state !== 'connect') return;
+    if(where.phoneError || !where.phoneUrl || !/^\d{6}$/.test(where.pairCode)) {
+      setCard({ kicker:'Connection', title:'Phone unavailable', say:where.phoneError || 'Could not prepare your connection. Try again.', visual:'none', connection:true, actions }); return;
+    }
     phoneCode=where.pairCode;
     phoneUrl = where.phoneUrl;
-    try { const qr = qrcode(0, 'M'); qr.addData(phoneUrl); qr.make(); ui.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); } catch {}
+    try { const qr = qrcode(0, 'M'); qr.addData(phoneUrl); qr.make(); ui.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
+    catch { setCard({ kicker:'Connection', title:'Phone unavailable', say:'Could not prepare the QR code. Try again.', visual:'none', connection:true, actions }); return; }
   }
   track(-1);
   const pairing = phoneCode ? ` Or enter code ${phoneCode}.` : '';
+  connectionPrompt = lost ? 'Open the phone page and enable motion. Your progress is kept.' + pairing : 'Scan to connect it — the profile needs your moves.' + pairing;
   setCard(lost
-    ? { kicker: 'Phone lost', title: 'Reconnect', say: 'Open the phone page and enable motion. Your progress is kept.' + pairing, visual: 'qr', url: phoneUrl.replace('https://', '') }
-    : { kicker: 'Connect', title: 'Your phone', say: 'Scan to connect it — the profile needs your moves.' + pairing, visual: 'qr', url: phoneUrl.replace('https://', '') });
+    ? { kicker: 'Phone lost', title: 'Reconnect', say: connectionPrompt, visual: 'qr', connection:true, actions, url: phoneUrl.replace(/^https?:\/\//, '') }
+    : { kicker: 'Connect', title: 'Your phone', say: connectionPrompt, visual: 'qr', connection:true, actions, url: phoneUrl.replace(/^https?:\/\//, '') });
+  connectionReady = true;
+  renderConnectionHelp();
 }
 function pocketCard(left, onReady) {
   track(-1);
@@ -264,12 +329,14 @@ function stillCard() {
 }
 
 async function begin() {
+  if (window.boot.state === 'failed') return stopTraining();
+  state = 'welcome';
   const my = flow, t0 = performance.now();
   welcomeCard();
   // the phone is usually already streaming (the carousel or a game kept the link); the opening stays up long enough to read
   for (let i = 0; i < 10 && pocket.link !== 'live'; i++) await sleep(200);
   await sleep(Math.max(0, 2600 - (performance.now() - t0)));
-  if (my !== flow) return;                          // dev mode took the screen
+  if (my !== flow) return;
   pocket.link === 'live' ? toPocket() : toConnect();
 }
 
@@ -279,6 +346,7 @@ async function begin() {
  * motion is really arriving again.
  */
 async function toConnect(lost = false) {
+  if (window.boot.state === 'failed') return stopTraining();
   state = 'connect';
   const my = ++flow;
   await connectCard(lost);
@@ -296,6 +364,7 @@ function phoneLost() {
 }
 
 function toPocket() {
+  if (window.boot.state === 'failed') return stopTraining();
   state = 'pocket';
   let left = 12;
   const draw = () => pocketCard(left, go);
@@ -306,11 +375,15 @@ function toPocket() {
 }
 
 async function toStill() {
+  if (window.boot.state === 'failed') return stopTraining();
   state = 'still';
   const my = ++flow;
   stillCard();
   const t0 = performance.now();
-  const spin = setInterval(() => ring(((performance.now() - t0) / 2200) % 1, true), 50);
+  const spin = setInterval(() => {
+    if (my !== flow) return clearInterval(spin);
+    ring(((performance.now() - t0) / 2200) % 1, true);
+  }, 50);
   const ok = await pocket.warmUp(tries => { if (tries === 8 && my === flow) ui.say.textContent = 'Still moving — two seconds without moving.'; });
   clearInterval(spin);
   if (my !== flow) return;                          // the phone was lost meanwhile: the reconnect card has the screen
@@ -331,7 +404,7 @@ function stepRoutine(read) {
   stepCard(out, read);
 }
 
-/** A step's card from the routine's state (or the dev preview's made-up one). */
+/** A step's card from the routine's state. */
 function stepCard(out, read) {
   const s = out.step;
   track(out.index);
@@ -360,7 +433,21 @@ function toResult(p) {
   document.body.classList.remove('in-steps');
   resultCard(p,
     () => { ui.actions.dataset.key = ''; hands.reset(); toStill(); },
-    () => { Profile.save(p); location.href = NEXT || '../'; });
+    () => saveResult(p));
+}
+function saveResult(profile) {
+  if (window.boot.state === 'failed') return stopTraining();
+  Profile.save(profile);
+  try {
+    const saved = JSON.stringify(profile), player = localStorage.getItem('inmotion.player.v1');
+    if (localStorage.getItem(Profile.KEY) !== saved || (player && localStorage.getItem(`arcade.calibration.${player}`) !== saved)) throw Error('Training storage unavailable');
+    location.assign(NEXT || '/');
+  } catch {
+    ui.note.textContent = 'This browser could not save your training. Allow site storage or free some browser storage, then try saving again. Your training is still here.';
+    ui.note.hidden = false;
+    const save = ui.actions.querySelector('button.primary');
+    if (save) save.textContent = 'Try saving again';
+  }
 }
 function resultCard(p, onRedo, onSave) {
   track(Profile.STEPS.length);
@@ -382,17 +469,10 @@ function resultCard(p, onRedo, onSave) {
 const motionCanvas = $('motion');
 let last = performance.now();
 function frame(nowMs) {
+  if (window.boot.state === 'failed') return stopTraining();
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (nowMs - last) / 1000); last = nowMs;
   const t = nowMs / 1000;
-  if (state === 'dev') {                              // the preview: made-up motion, no phone, no flow
-    const d = devFrame(clock(), dt);
-    stepBody(clock(), dt, d.read, d.stepId);
-    coach.update(dt);
-    pocket.drawPanel(motionCanvas, { glass: true, label: false });
-    renderer.render(scene, camera);
-    return;
-  }
   const read = pocket.poll();
   // the phone is needed from the pocket card on: the moment motion stops arriving (1.5 s), ask for it
   if ((state === 'pocket' || state === 'still' || state === 'steps') && pocket.link === 'lost') phoneLost();
@@ -409,107 +489,31 @@ function frame(nowMs) {
   renderer.render(scene, camera);
 }
 
-// ================================================================== dev
-//
-// Every screen of the training, without a phone, for working on the look.
-// The Dev pill (bottom right, or ?dev=1) stops the real flow and shows any
-// screen live: the body moves as it would (walking round the loop, frozen,
-// jumping, squatting, the heart at the end), the card animates, the motion
-// card draws a made-up chart. ← / → step through the screens. "Leave dev"
-// reloads into the real thing.
-
-const DEV = [
-  { name: 'Welcome', show: () => welcomeCard() },
-  { name: 'Connect', show: () => connectCard(false) },
-  { name: 'Reconnect', show: () => connectCard(true) },
-  { name: 'Pocket', show: () => { ui.actions.dataset.key = ''; pocketCard(9, () => {}); } },
-  { name: 'Stand still', show: () => stillCard(), still: true },
-  ...Profile.STEPS.map((s, i) => ({ name: s.title, step: i })),
-  { name: 'Result', show: () => { ui.actions.dataset.key = ''; resultCard(devProfile(), () => {}, () => {}); hands.win(clock()); } },
-];
-const dev = { i: 0, lead: false, phone: 'live', t0: 0 };
-/** A believable profile to fill the result card: what a fit makes of an ordinary player. */
-function devProfile() {
-  const g = (hz, v, tilt) => ({ hz: [hz], peaks: [1.8, 1.9, 2.0, 2.1, 1.7, 1.85], maxV: v, maxTilt: tilt });
-  return Profile.fit({ walk: g(1.6, 0.3, 20), jog: g(2.8, 0.9, 40), sprint: g(3.4, 0.95, 44), still: { a: [0.08], w: [30] }, stopS: 0.3,
-    hop: [1.7, 1.8, 1.75], squat: [66, 70, 68], squatMaxA: 1.8, squatMaxW: 150 });
-}
-function devShow(i) {
-  dev.i = (i + DEV.length) % DEV.length; dev.t0 = clock();
-  const d = DEV[dev.i];
-  hands.reset(); body.frozen = false; lastTitle = '';
-  document.body.classList.toggle('in-steps', d.step != null);
-  if (d.show) d.show();
-  devPanel.querySelectorAll('[data-screen]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.screen === dev.i)));
-}
-/** One frame of the preview: the made-up phone read for this screen, and the card if it is a step. */
-function devFrame(t, dt) {
-  const d = DEV[dev.i], el = t - dev.t0;
-  const s = d.step != null ? Profile.STEPS[d.step] : null;
-  const id = s ? s.id : null;
-  const hz = { walk: 1.7, jog: 2.8, sprint: 3.4 }[id] || 0;
-  const hopPhase = (el % 1.8) / 1.8, squatK = Math.max(0, Math.sin(el * Math.PI / 1.75));
-  const read = {
-    live: true, events: [], running: hz > 0, cadenceHz: hz, wDps: id === 'freeze' || d.still ? 4 : 40,
-    v: id === 'hop' && hopPhase < 0.12 ? 1.8 : 0.05,
-    tilt: id === 'squat' ? 8 + 64 * squatK : 6,
-    aG: hz > 0 ? 1 + 0.9 * Math.pow(Math.max(0, Math.sin(el * Math.PI * hz)), 8) : 1,
-  };
-  // the motion card: a chart shaped like this move
-  const pnow = performance.timeOrigin + performance.now();
-  const g = 9.80665;
-  const mag = hz > 0 ? 1 + (hz / 3.4) * 1.3 * Math.pow(Math.max(0, Math.sin(el * Math.PI * hz)), 6) - 0.25 * Math.max(0, Math.sin(el * Math.PI * hz + 1.4))
-    : id === 'hop' ? (hopPhase < 0.1 ? 1.8 : hopPhase < 0.3 ? 0.1 : hopPhase < 0.36 ? 2.4 : 1)
-    : id === 'squat' ? 1 + 0.18 * Math.sin(el * Math.PI / 0.875)
-    : 1 + (Math.random() - 0.5) * 0.01;
-  pocket.samples.push({ t: pnow, a: [0, 0, g * mag], g: [0, 0, g], w: [0, 0, 0] });
-  if (pocket.samples.length > 600) pocket.samples.shift();
-  pocket.lastSampleAt = dev.phone === 'offline' ? 0 : dev.phone === 'weak' ? pnow - 800 : pnow;
-  if (s) {
-    const cyc = s.kind === 'hold' ? (el % s.s) / s.s : (el % 3.5) / 3.5;
-    const counted = s.kind === 'reps' ? Math.min(s.n, Math.floor(el / 3.5) % (s.n + 1)) : null;
-    stepCard({
-      step: s, index: d.step, of: Profile.STEPS.length, lead: dev.lead, lead01: dev.lead ? (el % 2.4) / 2.4 : 1,
-      hold: Math.min(1, cyc / (s.kind === 'reps' ? 0.74 : 1)), inRep: s.kind === 'reps' && cyc < 0.74, reps: counted, repsOf: s.kind === 'reps' ? s.n : null,
-      last: s.kind === 'reps' && cyc > 0.74 ? { ok: true, value: s.feature === 'v' ? 1.72 : 68 } : null,
-    }, read);
-  } else if (d.still) ring((el / 2.2) % 1, true);
-  return { read, stepId: s && !dev.lead ? id : null };
-}
-
-const devPanel = $('devPanel'), devToggle = $('devToggle');
-function enterDev() {
-  if (state !== 'dev') {
-    flow++;                                          // any waiting step of the real flow gives up
-    state = 'dev'; out = null;
-    window.__phonePreview = dev.phone;
-    devPanel.querySelector('#devScreens').innerHTML = DEV.map((d, i) => `<button type="button" data-screen="${i}">${d.name}</button>`).join('');
-    devPanel.querySelectorAll('[data-screen]').forEach(b => b.onclick = () => devShow(+b.dataset.screen));
-    devShow(0);
+// Keep the transport active during loading; begin the routine only after every
+// required model and guide is ready and both scenes have rendered successfully.
+async function start() {
+  try {
+    await buildGym();
+    welcomeCard();
+    coach.setMove('jog');
+    stepBody(clock(), 0, null, null);
+    coach.update(0);
+    await prepareScene(renderer, scene, camera);
+    await prepareScene(coach.renderer, coach.scene, coach.camera);
+    if (window.boot.done() === false) return stopTraining();
+    document.body.classList.remove('training-loading');
+    const stage = document.querySelector('.stage');
+    last = performance.now();
+    requestAnimationFrame(frame);
+    stage.inert = false;
+    stage.setAttribute('aria-busy', 'false');
+    begin();
+  } catch (error) {
+    stopTraining();
+    window.boot.fail(error);
   }
-  devPanel.hidden = false; devToggle.setAttribute('aria-expanded', 'true');
 }
-devToggle.onclick = () => {
-  if (devPanel.hidden) enterDev();
-  else { devPanel.hidden = true; devToggle.setAttribute('aria-expanded', 'false'); }   // hide the panel, keep the preview
-};
-$('devLead').onchange = e => { dev.lead = e.target.checked; lastTitle = ''; };
-devPanel.querySelectorAll('[data-phone]').forEach(b => b.onclick = () => {
-  dev.phone = b.dataset.phone;
-  window.__phonePreview = dev.phone;                 // the phone card (carousel/phone-status.js) shows this state
-  devPanel.querySelectorAll('[data-phone]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-});
-$('devExit').onclick = () => { location.href = location.pathname + location.search.replace(/[?&]dev=1/, '').replace(/^&/, '?'); };
-addEventListener('keydown', e => {
-  if (state !== 'dev' || e.target.closest('input, button')) return;
-  if (e.key === 'ArrowRight') devShow(dev.i + 1);
-  if (e.key === 'ArrowLeft') devShow(dev.i - 1);
-});
 
-buildGym().then(() => {
-  requestAnimationFrame(frame);
-  begin();
-  if (new URLSearchParams(location.search).get('dev') === '1') enterDev();
-});
+start();
 
 hostBridge.setSnapshot(()=>({phase:state,motion:pocket.link}));

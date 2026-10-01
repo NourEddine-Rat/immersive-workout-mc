@@ -22,6 +22,8 @@ import { GENERIC } from '../../engine/lib/motion-detector.js';
 import * as Profile from '../../engine/profile.js';
 import { qrcode } from '../../engine/lib/qrcode.js';
 import { devPanel } from '../../engine/developer-panel.js';
+import { devAllowed } from '../../engine/lib/dev-policy.js';
+import { createAssetLoader, prepareScene } from '../../engine/asset-loader.js';
 
 const $ = id => document.getElementById(id);
 const ui = {
@@ -80,9 +82,9 @@ let profile = Profile.load();
 addEventListener('player-profile',()=>{profile=Profile.load();});
 // No profile yet: straight to the training — before loading anything — and back here when it is saved.
 // (Not in dev: the Dev panel and ?dev=1 work without one.)
-if (!profile && new URLSearchParams(location.search).get('dev') !== '1') location.replace(Profile.trainingUrl());
+if (!profile && !devAllowed) location.replace(Profile.trainingUrl());
 let profiling = null;
-let runMode = (() => { try { return localStorage.getItem('subway.runmode') || 'run'; } catch { return 'run'; } })();
+let runMode = !devAllowed ? 'run' : (() => { try { return localStorage.getItem('subway.runmode') || 'run'; } catch { return 'run'; } })();
 // Which one is on is not on the screen any more — the HUD is the level, the
 // numbers and the phone. M switches it, and the game tells you which it is
 // by how it behaves: your legs drive it, or the level does.
@@ -128,7 +130,7 @@ let ride = null;      // a ramp train the player has chosen to ride (jumped for)
 let nextMover = 0;    // seconds: when the next moving train may be sent
 let runs = 0;
 const LATE_SLIDE_MS = 280;   // how late a slide may be heard and still count
-window.__sw = { player, world, dog, look, get run() { return run; }, pocket, get state() { return state; }, get speed() { return speed; }, get profile() { return profile; }, setRunMode, Profile };
+if (devAllowed) window.__sw = { player, world, dog, look, get run() { return run; }, pocket, get state() { return state; }, get speed() { return speed; }, get profile() { return profile; }, setRunMode, Profile };
 
 // --------------------------------------------------------------- the card
 let cardTimer = null;
@@ -289,13 +291,18 @@ const MOVERS_FROM = 2;   // the level moving trains start at
 // ?dev=1: play from the keyboard with no phone (Space jump · S slide · M speed
 // mode · 1–9 jump to that level · +/- next/previous level). ?level=N starts
 // every run at level N. For seeing the whole game, not for players.
-let DEV = new URLSearchParams(location.search).get('dev') === '1';
-let startLevel = Math.max(1, Number(new URLSearchParams(location.search).get('level')) || 1);
+let DEV = devAllowed;
+let startLevel = devAllowed ? Math.max(1, Number(new URLSearchParams(location.search).get('level')) || 1) : 1;
 
 /** Put the run at the start of level `n`: the track is rebuilt from there. */
 /** Dev mode: keyboard play and the level bar, no phone needed (?dev=1, or the Dev panel). */
 function enterDev() {
+  if (!devAllowed) return;
   DEV = true;
+  if (!ui.devLevel) {
+    ui.dev.innerHTML = '<span>DEV</span> level <input id="devLevel" type="number" min="1" max="99" value="1"> <button id="devGo">go</button> <span class="k">Space jump · S slide · 1–9 level · +/− · M mode · F fire · T hour</span>';
+    ui.devLevel = $('devLevel'); ui.devGo = $('devGo');
+  }
   ui.dev.hidden = false;
   ui.devLevel.value = String(startLevel);
   ui.devLevel.onchange = () => jumpToLevel(Number(ui.devLevel.value));
@@ -425,6 +432,7 @@ function drawSpeedLines() {
 // keyboard, for a desk: the same three moves
 addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.keyCode === 13) { if (pressPrimary()) e.preventDefault(); return; }
+  if (!devAllowed) return;
   if (e.key === 'm' || e.key === 'M') { setRunMode(runMode === 'run' ? 'auto' : 'run'); return; }
   if (DEV && /^[1-9]$/.test(e.key)) { jumpToLevel(Number(e.key)); return; }
   if (DEV && (e.key === '+' || e.key === '=')) { jumpToLevel(level + 1); return; }
@@ -457,6 +465,7 @@ function watchFps(now, dt) {
 
 let frameSkip = false;
 function frame(now) {
+  if (window.boot?.state === 'failed') return;
   requestAnimationFrame(frame);
   // a weak screen: every other vsync, so 30 fps even, instead of 40 uneven
   if (LITE && (frameSkip = !frameSkip) === false) return;
@@ -644,16 +653,25 @@ function frame(now) {
 
 // ------------------------------------------------------------------ boot
 (async () => {
-  const boot = window.__boot;
+  const boot = window.boot || window.__boot;
+  const loader = createAssetLoader({ boot });
   try {
-    if (boot) boot.step('downloading…');
-    await world.load(boot ? (what, d, t) => boot.progress(what, d, t) : null);
-    if (boot) boot.step('building the track…');
-  } catch (e) { if (boot) boot.fail('The game could not load its models: ' + (e.message || e)); throw e; }
+    await loader.preload([
+      {url:'./models/environment/subway-environment.gltf', label:'Subway track'},
+      {url:'./models/train/passenger-train.gltf', label:'Trains'},
+      {url:'./models/coin/coin.gltf', label:'Coins'},
+      {url:'./models/fire/energy-token.gltf', label:'Energy tokens'},
+      {url:'./models/dog/chase-dog.gltf', label:'Chase dog'},
+    ]);
+    boot && boot.step('Building the track…');
+    await world.load(loader);
+    await dog.load(loader);
+    boot && boot.step('Preparing the first frame…');
+    await prepareScene(renderer, scene, camera, () => frame(performance.now()));
+  } catch (e) { boot && boot.fail('The game could not load: ' + (e.message || e)); return; }
+  if (boot && boot.done() === false) return;
   window.__gameUp = true;
   if (window.__log) window.__log('game up · ' + (renderer.capabilities.isWebGL2 ? 'webgl2' : 'webgl1'));
-  dog.load();
-  requestAnimationFrame(frame);
   pocket.start();
   // the phone follows the screen: inside a room it is a controller, not a menu
   pocket.onPhoneSays = m => { if (m.t === 'hello' || m.t === 'ready') pocket.send({ t: 'scene', where: 'subway' }); };
@@ -676,7 +694,7 @@ function devEnd(o) {
   metres = 812; coins = 37; cal.kcal = 46; cal.jumps = 23; cal.squats = 11; cal.seconds = 330;   // a run worth reading
   die(o);
 }
-devPanel({
+if (devAllowed) devPanel({
   pocket,
   onOpen: () => { if (!DEV) enterDev(); },
   settle: () => { clearInterval(cardTimer); cardTimer = null; },     // cards stay up instead of pressing themselves

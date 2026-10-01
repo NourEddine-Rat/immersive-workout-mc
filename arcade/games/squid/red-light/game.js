@@ -13,8 +13,8 @@ import { hostBridge } from '../../../engine/host-bridge.js';
 // stand still → jump to start. Then the briefing, and the game.
 
 import * as THREE from 'three';
-import { GLTFLoader } from '../../../engine/three/GLTFLoader.js';
-import { MeshoptDecoder } from '../../../engine/three/libs/meshopt_decoder.module.js';
+import { createAssetLoader, prepareScene } from '../../../engine/asset-loader.js';
+import { devAllowed } from '../../../engine/lib/dev-policy.js';
 import { PocketSource, mergeCfg } from '../../../engine/motion-controller.js';
 import { GENERIC } from '../../../engine/lib/motion-detector.js';
 import * as Profile from '../../../engine/profile.js';
@@ -33,18 +33,18 @@ import { Doll, RULES } from './rules.js';
 import { Director, LANE } from './director.js';
 
 const $ = id => document.getElementById(id);
-const Q = new URLSearchParams(location.search);
-let DEV = Q.get('dev') === '1';                     // keyboard play and the test keys (?dev=1, or the button on the connect card)
-const dev = { god: false, hold: false, hud: true, giftK: 0, live: null, assist: Q.get('assist') === '1' };
+const Q = new URLSearchParams(devAllowed ? location.search : '');
+let DEV = devAllowed;                     // keyboard play and the test keys (?dev=1, or the button on the connect card)
+const dev = { god: false, hold: false, hud: true, giftK: 0, live: null, assist: devAllowed && Q.get('assist') === '1' };
 // The game does not hold your hand. The first two red lights of a session
 // teach (callouts, the lit song, the meter, the warnings), the jump and the
 // squat are shown once each, the first time — after that it is you, the
 // song and the doll. ?assist=1 (or I in dev mode) keeps every hint on.
 const coach = { reds: 0, told: new Set(), giftShown: null };
 const teaching = () => dev.assist || coach.reds <= 2;
-const AUTO = Q.get('auto') || '';                     // a scripted player, for testing: 1 = plays well · late = stops too late (caught) · idle = never moves (time up)
+const AUTO = devAllowed ? Q.get('auto') || '' : '';                     // a scripted player, for testing: 1 = plays well · late = stops too late (caught) · idle = never moves (time up)
 const BOTS = Math.max(4, Math.min(120, Number(Q.get('bots')) || 56));
-const STEP = Number(Q.get('step')) || 0;               // tests: a fixed time step per frame, whatever the wall clock does
+const STEP = devAllowed ? Number(Q.get('step')) || 0 : 0;               // tests: a fixed time step per frame, whatever the wall clock does
 const SHADOWS = Q.get('shadows') !== '0';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -77,7 +77,7 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
-const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const loader = createAssetLoader();
 const arena = new Arena(scene);
 const crowd = new Crowd(scene);
 const hands = new Hands(camera);
@@ -89,7 +89,7 @@ let profile = Profile.load();
 addEventListener('player-profile',()=>{profile=Profile.load();});
 // No profile yet: straight to the training — before loading anything — and back here when it is saved.
 // (Not in dev: the Dev panel and ?dev=1 work without one.)
-if (!profile && new URLSearchParams(location.search).get('dev') !== '1') location.replace(Profile.trainingUrl());
+if (!profile && !devAllowed) location.replace(Profile.trainingUrl());
 let profiling = null;
 const KG_KEY = 'squid.kg';
 const cal = new Calories((() => { try { return Number(localStorage.getItem(KG_KEY)) || KCAL.defaultKg; } catch { return KCAL.defaultKg; } })());
@@ -110,7 +110,7 @@ let lastFrame = 0;
 let redIndex = 0, pot = 0, playT = 0;
 let keyEvents = [];
 const keys = { run: false, fast: false };
-window.__sq = { get state() { return state; }, get intro() { return intro; }, get profiling() { return profiling; }, get me() { return me; }, get doll() { return doll; }, get director() { return director; }, still, pocket, arena, crowd, hands, fx, camera, renderer, get gifts() { return gifts; } };
+if (devAllowed) window.__sq = { get state() { return state; }, get intro() { return intro; }, get profiling() { return profiling; }, get me() { return me; }, get doll() { return doll; }, get director() { return director; }, still, pocket, arena, crowd, hands, fx, camera, renderer, get gifts() { return gifts; } };
 
 function newMe() {
   return {
@@ -161,7 +161,7 @@ async function askForPhone() {
     <div class="url">${url}</div>
     ${where.pairCode ? `<p class="why">Or enter this code on your phone</p><div style="font-size:32px;font-weight:800;letter-spacing:.2em;font-variant-numeric:tabular-nums">${where.pairCode}</div>` : ""}
     <p class="why">${where.hosted ? "Keep this page open on both devices." : "Same Wi-Fi as this computer."} Nothing to install.</p>
-    <p class="wait">waiting for the phone…</p>`, [{ label: 'No phone — play with keyboard', onClick: () => enterDev() }]);
+    <p class="wait">waiting for the phone…</p>`, devAllowed ? [{ label: 'No phone — play with keyboard', onClick: () => enterDev() }] : []);
   const tick = setInterval(() => {
     if (state !== 'connect') return clearInterval(tick);
     if (pocket.streaming) { clearInterval(tick); profile ? welcome() : train(); }
@@ -622,7 +622,7 @@ function recordStats(win) {
 // ------------------------------------------------------------------ input
 addEventListener('keydown', e => {
   if (e.key === 'Enter') { if (pressPrimary()) e.preventDefault(); return; }
-  if (e.repeat) return;
+  if (!devAllowed || e.repeat) return;
   if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') { keys.run = true; keys.fast = e.shiftKey; e.preventDefault(); return; }
   if (e.key === 'Shift') { keys.fast = true; return; }
   if (e.key === ' ') { e.preventDefault(); if (state === 'ready') { startFromReady(); return; } keyEvents.push({ action: 'UP' }); return; }
@@ -630,6 +630,7 @@ addEventListener('keydown', e => {
   if (DEV && devKey(e)) e.preventDefault();
 });
 addEventListener('keyup', e => {
+  if (!devAllowed) return;
   if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.run = false;
   if (e.key === 'Shift') keys.fast = false;
 });
@@ -644,6 +645,7 @@ const DEV_KEYS = [
   ['I', 'all hints on/off'], ['P', 'pause'], ['H', 'hide HUD'], ['R', 'restart'],
 ];
 function enterDev() {
+  if (!devAllowed) return;
   DEV = true;
   const el = $('dev');
   el.innerHTML = '<div class="devTop"><span>DEV</span><span id="devLive">—</span></div><div class="devKeys">' + DEV_KEYS.map(([k, v]) => `<b>${k}</b> ${v}`).join(' · ') + '</div>';
@@ -735,12 +737,13 @@ function watchFps(now, dt) {
   fpsAcc += dt; fpsN++;   // dt here is the real frame time, unclamped
   if (now - fpsAt < 2000) return;
   const fps = fpsN / Math.max(0.001, fpsAcc); fpsAcc = 0; fpsN = 0; fpsAt = now;
-  window.__fps = fps;
+  if (devAllowed) window.__fps = fps;
   const want = fps < 24 ? Math.max(0.6, scale - 0.15) : fps < 40 ? Math.max(0.6, scale - 0.05) : fps > 56 ? Math.min(Math.min(devicePixelRatio, 1.75), scale + 0.05) : scale;
   if (Math.abs(want - scale) > 0.01) { scale = want; renderer.setPixelRatio(scale); resize(); }
 }
 
 function frame(now) {
+  if (window.boot?.state === 'failed') return;
   requestAnimationFrame(frame);
   const real = (now - (lastFrame || now)) / 1000; lastFrame = now;
   const dt = STEP || Math.min(0.05, real);
@@ -817,7 +820,7 @@ function frame(now) {
   camera.fov = 72 + clamp(me.speed - 1, 0, 2) * 2.2; camera.updateProjectionMatrix();
   hands.visible = !(me.deathT != null && me.deathT > 2.2);
   // debugging: window.__camOverride = { pos: [x, y, z], look: [x, y, z] } puts the eye anywhere (hands hidden)
-  if (window.__camOverride) { const o = window.__camOverride; camera.position.set(...o.pos); camera.lookAt(...o.look); hands.visible = false; }
+  if (devAllowed && window.__camOverride) { const o = window.__camOverride; camera.position.set(...o.pos); camera.lookAt(...o.look); hands.visible = false; }
 
   renderer.render(scene, camera);
   try { pocket.drawPanel(ui.pose); } catch {}
@@ -826,18 +829,25 @@ function frame(now) {
 
 // ------------------------------------------------------------------ boot
 (async () => {
-  const boot = window.__boot;
+  const boot = window.boot || window.__boot;
   try {
-    boot && boot.step('loading the field…');
+    await loader.preload([
+      {url:'./models/arena.glb', label:'Red Light arena'},
+      {url:'../../../engine/body/athlete-avatar.glb', label:'Players'},
+      {url:'../../../engine/body/controller-arms.glb', label:'Your hands'},
+    ]);
+    boot && boot.step('Preparing the field…');
     await arena.load(loader);
-    boot && boot.step('loading the players…');
+    boot && boot.step('Preparing the players…');
     await crowd.load('../../../engine/body/athlete-avatar.glb', loader);
-    boot && boot.step('loading your hands…');
+    boot && boot.step('Preparing your hands…');
     await hands.load('../../../engine/body/controller-arms.glb', loader);
-  } catch (e) { boot && boot.fail('The game could not load its models: ' + (e.message || e)); throw e; }
+    boot && boot.step('Preparing the first frame…');
+    resetRound(false);
+    await prepareScene(renderer, scene, camera, () => frame(performance.now()));
+  } catch (e) { boot && boot.fail('The game could not load: ' + (e.message || e)); return; }
+  if (boot && boot.done() === false) return;
   window.__gameUp = true;
-  resetRound(false);
-  requestAnimationFrame(frame);
   pocket.start();
   pocket.onPhoneSays = m => { if (m.t === 'hello' || m.t === 'ready') pocket.send({ t: 'scene', where: 'squid' }); };
   setInterval(() => { if (pocket.link !== 'lost') pocket.send({ t: 'scene', where: 'squid' }); }, 3000);
@@ -867,7 +877,7 @@ async function devPlaying(full = false) {
 }
 /** Push the doll on (the N key) until she is in one of these phases. */
 async function devDoll(phases) { for (let i = 0; i < 8 && !phases.includes(doll.state); i++) { devKey({ key: 'n' }); await devWait(90); } }
-devPanel({
+if (devAllowed) devPanel({
   pocket,
   onOpen: () => { if (!DEV) enterDev(); },
   settle: () => { clearInterval(cardTimer); cardTimer = null; },

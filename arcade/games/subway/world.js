@@ -10,7 +10,7 @@
 // https://sketchfab.com/3d-models/sub-way-surf-assets-e435b57e2d7f459182b4af0fc3e38540
 
 import * as THREE from 'three';
-import { GLTFLoader } from '../../engine/three/GLTFLoader.js';
+import { createAssetLoader } from '../../engine/asset-loader.js';
 import { LANE_X, LANE_Z, GROUND_Y, TILE_PITCH, HIT } from './lanes.js';
 import { rowGapUnits } from './pacing.js';
 import { LAMP, restyle, onHour } from './theme.js';
@@ -62,48 +62,8 @@ export const ANSWERS = { block: ['jump'], bar: ['jump', 'roll'], high: ['roll'],
  * Move the diffuse textures of the KHR_materials_pbrSpecularGlossiness
  * extension (dropped from modern loaders) into the core material.
  */
-export async function loadGltfPatched(url, onProgress = null) {
-  const json = await (await fetch(url)).json();
-  for (const m of json.materials || []) {
-    const sg = m.extensions?.KHR_materials_pbrSpecularGlossiness;
-    if (sg) m.pbrMetallicRoughness = { baseColorTexture: sg.diffuseTexture, baseColorFactor: sg.diffuseFactor || [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 1 };
-  }
-  json.extensionsUsed = (json.extensionsUsed || []).filter(e => e !== 'KHR_materials_pbrSpecularGlossiness');
-  json.extensionsRequired = [];
-  const path = url.slice(0, url.lastIndexOf('/') + 1);
-  // The buffers and textures are fetched here, by hand, so their download can
-  // be shown — on a slow TV that is the difference between "loading" and
-  // "broken". The loader is then pointed at the bytes already in memory.
-  const manager = new THREE.LoadingManager();
-  const files = [...(json.buffers || []), ...(json.images || [])].map(x => x.uri).filter(u => u && !/^(data:|blob:|https?:)/.test(u));
-  const blobs = await fetchAll(files.map(u => path + u), onProgress);
-  manager.setURLModifier(u => blobs[u] || u);
-  const loader = new GLTFLoader(manager);
-  return new Promise((res, rej) => loader.parse(JSON.stringify(json), path, res, rej));
-}
-
-/** Download files with progress; returns { url: blobUrl }. Falls back to plain fetch where streams are missing. */
-async function fetchAll(urls, onProgress) {
-  const out = {};
-  let done = 0, total = 0;
-  const sizes = new Map();
-  const report = () => { if (onProgress) onProgress(done, total || done, urls.length); };
-  await Promise.all(urls.map(async u => {
-    const res = await fetch(u, { cache: 'default' });
-    if (!res.ok) throw new Error(`${u}: ${res.status}`);
-    const len = Number(res.headers.get('content-length')) || 0;
-    if (len) { sizes.set(u, len); total = [...sizes.values()].reduce((a, b) => a + b, 0); }
-    let blob;
-    if (res.body && res.body.getReader) {
-      const reader = res.body.getReader(); const chunks = [];
-      for (;;) { const { done: end, value } = await reader.read(); if (end) break; chunks.push(value); done += value.length; report(); }
-      blob = new Blob(chunks, { type: res.headers.get('content-type') || '' });
-    } else { blob = await res.blob(); done += blob.size; report(); }
-    const U = (window.URL && window.URL.createObjectURL) ? window.URL : window.webkitURL;   // a polyfilled URL has no createObjectURL; the old native one is webkitURL
-    out[u] = U.createObjectURL(blob);
-  }));
-  report();
-  return out;
+export async function loadGltfPatched(url, onProgress = null, loader = createAssetLoader()) {
+  return loader.loadAsync(url, onProgress ? event => onProgress(event.loaded, event.total) : undefined);
 }
 
 /**
@@ -111,8 +71,8 @@ async function fetchAll(urls, onProgress) {
  * height or width, centred on x and z, floor at the rail bed, front turned
  * from the file's +z to the track's +x.
  */
-async function bakeExternal(spec, onProgress = null) {
-  const gltf = await loadGltfPatched(spec.url, onProgress);
+async function bakeExternal(spec, loader) {
+  const gltf = await loader.loadAsync(spec.url);
   const geoms = [];
   let map = null;
   gltf.scene.updateWorldMatrix(true, true);
@@ -233,9 +193,9 @@ export class World {
     scene.add(this.backdrop);
   }
 
-  async load(onProgress = null) {
+  async load(loader = createAssetLoader()) {
     SHRINK_TO = this.lite ? 512 : 0;
-    const gltf = await loadGltfPatched(MODEL + 'subway-environment.gltf', onProgress ? (d, t) => onProgress('the track', d, t) : null);
+    const gltf = await loader.loadAsync(MODEL + 'subway-environment.gltf');
     const get = n => gltf.scene.getObjectByName(n);
     this.tpl = {
       tile: bake(get(PIECES.tile), true),
@@ -248,18 +208,16 @@ export class World {
     };
     // 'low' stays as an alias for callers that only know jump-over barriers
     this.tpl.low = [...this.tpl.block, ...this.tpl.bar];
-    this.tpl.movers = { long: await bakeExternal(MOVERS.long, onProgress ? (d, t) => onProgress('the trains', d, t) : null) };
+    this.tpl.movers = { long: await bakeExternal(MOVERS.long, loader) };
     // Tile: origin at the rail start so tiles butt together along -x.
     const t = this.tpl.tile;
     t.geom.translate(-t.box.max.x + 1.9, 0, 0);
     t.geom.computeBoundingBox();
-    // coin: the model, or — a file missing, a fetch refused — a plain gold disc
+    // Required pickups load with the map; a broken texture must be retryable.
     let cg = null, cmap = null;
-    try {
-      const coin = await loadGltfPatched(COIN.url, onProgress ? (d, t) => onProgress('the coins', d, t) : null);
-      coin.scene.traverse(o => { if (o.isMesh && !cg) { cg = index16(o.geometry); cmap = o.material.map || null; } });
-    } catch (e) { console.warn('coin model: ' + (e && e.message || e)); }
-    if (!cg) { cg = new THREE.CylinderGeometry(0.42, 0.42, 0.1, this.lite ? 10 : 24); cg.rotateX(Math.PI / 2); }
+    const coin = await loader.loadAsync(COIN.url);
+    coin.scene.traverse(o => { if (o.isMesh && !cg) { cg = index16(o.geometry); cmap = o.material.map || null; } });
+    if (!cg) throw new Error('The coin model has no geometry.');
     if (cmap) { cmap.colorSpace = THREE.SRGBColorSpace; cmap.anisotropy = 1; }
     // The texture is painted lit; it also glows a little of itself, so the
     // side turned from the light is still a gold coin and not a dark disc.
@@ -273,17 +231,15 @@ export class World {
     this.track.add(this.coinMesh);
     this.coinFree = []; for (let i = COIN_SLOTS - 1; i >= 0; i--) this.coinFree.push(i);
     this._m4 = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._v = new THREE.Vector3(); this._s1 = new THREE.Vector3(1, 1, 1); this._s0 = new THREE.Vector3(0, 0, 0);
-    // The flame token: the model, or a plain flame-coloured drop. It is LIT,
+    // The flame token is lit,
     // not unlit — the token is 2.7 cm of solid, and only shading tells you
     // so: unlit, its side wall came up as one flat slab of colour the moment
     // it turned, and the whole thing read as cardboard. The emissive keeps it
     // a pickup: bright in any light, but with a shaded edge.
     let fg = null, fmap = null;
-    try {
-      const fire = await loadGltfPatched(FIRE.url, onProgress ? (d, t) => onProgress('the fire', d, t) : null);
-      fire.scene.traverse(o => { if (o.isMesh && !fg) { fg = index16(o.geometry); fmap = o.material.map || null; } });
-    } catch (e) { console.warn('fire model: ' + (e && e.message || e)); }
-    if (!fg) { fg = new THREE.ConeGeometry(0.5, 1.6, 8); }
+    const fire = await loader.loadAsync(FIRE.url);
+    fire.scene.traverse(o => { if (o.isMesh && !fg) { fg = index16(o.geometry); fmap = o.material.map || null; } });
+    if (!fg) throw new Error('The energy-token model has no geometry.');
     if (fmap) { fmap.colorSpace = THREE.SRGBColorSpace; fmap.anisotropy = 1; }
     this.tpl.fire = { geom: fg, mat: new THREE.MeshLambertMaterial({ map: fmap, color: fmap ? 0xffffff : 0xff7a1a, emissive: 0xffffff, emissiveMap: fmap || null, emissiveIntensity: fmap ? 0.62 : 0.5, transparent: true, fog: false }) };
     // ...and its glow: one soft disc behind it, added to whatever is there

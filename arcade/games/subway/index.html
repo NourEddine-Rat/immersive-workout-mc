@@ -9,72 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <script type="importmap">{ "imports": { "three": "../../engine/three/three.module.js" } }</script>
-<script>
-// The boot check. Plain old JavaScript on purpose: it runs on any browser,
-// including one that cannot run the game, and says so — a TV browser that
-// lacks modules or WebGL would otherwise sit on "loading" forever.
-(function () {
-  // Diagnostic messages stay in this browser.
-  function log(line) { if (window.console && console.debug) console.debug(line); }
-  window.__log = log;
-  window.__modern = ('noModule' in document.createElement('script')) && !!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'));
-  log('page ' + location.pathname + location.search + ' | ' + navigator.userAgent + ' | ' + screen.width + 'x' + screen.height);
-  var lines = [];
-  function el(id) { return document.getElementById(id); }
-  function show(html, bad) {
-    var box = el('bootBox'); if (!box) return;
-    box.innerHTML = html; box.className = bad ? 'bad' : '';
-  }
-  var boot = window.__boot = {
-    checks: [],
-    ok: true,
-    check: function (name, pass, fix) { this.checks.push({ name: name, pass: !!pass, fix: fix }); if (!pass) this.ok = false; log('check ' + (pass ? 'ok ' : 'NO ') + name); },
-    errors: [],
-    render: function (extra) {
-      var html = '';
-      for (var i = 0; i < this.checks.length; i++) { var c = this.checks[i]; html += '<div class="chk ' + (c.pass ? 'ok' : 'no') + '">' + (c.pass ? '✓' : '✗') + ' ' + c.name + (c.pass ? '' : ' — ' + c.fix) + '</div>'; }
-      for (var j = 0; j < this.errors.length; j++) html += '<div class="chk no">✗ ' + this.errors[j] + '</div>';
-      show(html + (extra || ''), !this.ok);
-    },
-    progress: function (what, done, total) {
-      var mb = function (n) { return (n / 1048576).toFixed(1); };
-      var pct = total ? Math.round(100 * done / total) : 0;
-      var bar = el('bootBar'); if (bar) bar.style.width = pct + '%';
-      var t = el('bootText'); if (t) t.textContent = 'downloading ' + what + ' · ' + mb(done) + (total ? ' of ' + mb(total) : '') + ' MB';
-      this.lastAt = Date.now();
-      if (pct === 100 || pct % 25 === 0) { if (this._lastPct !== what + pct) { this._lastPct = what + pct; log('download ' + what + ' ' + pct + '%'); } }
-    },
-    step: function (text) { var t = el('bootText'); if (t) t.textContent = text; this.lastAt = Date.now(); log('step ' + text); },
-    fail: function (text) { this.ok = false; if (this.errors.length < 4) this.errors.push(text); log('FAIL ' + text); this.render(); var t = el('bootText'); if (t) t.textContent = 'The game hit an error — tell the developer the red line above.'; }
-  };
-  window.addEventListener('DOMContentLoaded', function () {
-    var canvas = document.createElement('canvas');
-    var gl = null; try { gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'); } catch (e) {}
-    var modern = window.__modern;
-    boot.check('WebGL', !!gl, 'no 3D graphics in this browser — it cannot run the game; cast a laptop tab to the TV instead');
-    boot.check(modern ? 'modern browser' : 'older browser — using the compatibility build', true, '');
-    boot.render();
-    if (!boot.ok) { var t = el('bootText'); if (t) t.textContent = boot.errors.length ? 'The game hit an error — tell the developer the red line above.' : 'This browser cannot run the game.'; }
-    boot.lastAt = Date.now();
-    // if nothing has moved for a while, say so — a slow network is not a broken game
-    setInterval(function () {
-      if (!boot.ok || window.__gameUp) return;
-      var idle = (Date.now() - boot.lastAt) / 1000;
-      var t = el('bootText');
-      if (t && idle > 20 && !/^still/.test(t.textContent)) t.textContent = 'still ' + (t.textContent || 'loading') + ' — the network is slow, hold on';
-    }, 5000);
-  });
-  window.addEventListener('error', function (e) {
-    log('error ' + (e.message || e.error || 'error') + (e.filename ? ' (' + String(e.filename).replace(/^.*\//, '') + ':' + e.lineno + ':' + e.colno + ')' : '') + (e.error && e.error.stack ? '\n' + String(e.error.stack).slice(0, 600) : ''));
-    if (window.__gameUp) return;
-    var where = e.filename ? ' (' + String(e.filename).replace(/^.*\//, '') + ':' + e.lineno + ':' + e.colno + ')' : '';
-    boot.fail('The game could not start: ' + (e.message || e.error || 'error') + where);
-  });
-  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; log('rejection ' + (r && r.message || r || 'error') + (r && r.stack ? '\n' + String(r.stack).slice(0, 600) : '')); if (!window.__gameUp) boot.fail('The game could not start: ' + (r && r.message || r || 'error')); });
-  // console.warn / console.error go to the server too
-  (function () { var c = window.console; if (!c) return; ['warn', 'error'].forEach(function (k) { var o = c[k]; c[k] = function () { try { log(k + ' ' + Array.prototype.slice.call(arguments).map(function (a) { return typeof a === 'string' ? a : (a && a.message) || JSON.stringify(a); }).join(' ').slice(0, 600)); } catch (e) {} if (o) o.apply(c, arguments); }; }); })();
-})();
-</script>
+<link rel="stylesheet" href="/engine/boot.css">
+<script src="/engine/boot.js"></script>
 <style>
   :root {--hud: #f7a52a; --hud2: #ffd35b; --ink: #fff; --shadow: 0 2px 0 #3a1d00, 0 0 12px rgba(0,0,0,0.5); --px: "Press Start 2P", "Menlo", ui-monospace, monospace;}
   * {box-sizing: border-box;}
@@ -230,8 +166,8 @@
 <div class="hud" id="hint" hidden><div id="hintArrow">▲</div><div id="hintText">JUMP!</div></div>
 
 
-<div id="dev" hidden><span>DEV</span> level <input id="devLevel" type="number" min="1" max="99" value="1"> <button id="devGo">go</button> <span class="k">Space jump · S slide · 1–9 level · +/− · M mode · F fire · T hour</span></div>
-<div id="overlay"><div class="card"><h1 id="overlayTitle">LOADING</h1><div id="overlayText"><div id="bootBox"></div><div id="bootTrack"><div id="bootBar"></div></div><div id="bootText">checking the browser…</div></div><div class="btns" id="overlayBtns" hidden></div></div></div>
+<div id="dev" hidden></div>
+<div id="overlay"><div class="card"><h1 id="overlayTitle">LOADING</h1><div id="overlayText"></div><div class="btns" id="overlayBtns" hidden></div></div></div>
 
 <script type="module" src="./game.js"></script>
 </body>

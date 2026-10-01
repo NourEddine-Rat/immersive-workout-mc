@@ -24,14 +24,17 @@ import {connectionExplanation} from '../engine/lib/connection-explanation.js';
   function carouselState(state){carouselMount.dataset.state=state;carouselMount.setAttribute('aria-busy',String(state==='loading'));frame.inert=state!=='ready';frame.setAttribute('aria-hidden',String(state!=='ready'));carouselMount.querySelector('.remote-gallery-loading').hidden=state!=='loading';}
   function showFallback(){carouselState('fallback');fallback.hidden=false;carouselMount.hidden=true;}
   function mountCarousel(){if(!frame.isConnected)carouselMount.prepend(frame);if(!frame.getAttribute('src')){carouselState('loading');fallback.hidden=true;carouselMount.hidden=false;frame.src='./index.html?controller=1';clearTimeout(fallbackTimer);fallbackTimer=setTimeout(showFallback,15000);}}
-  function unmountCarousel(){clearTimeout(fallbackTimer);fallback.hidden=true;carouselState('loading');frame.remove();frame.removeAttribute('src');}
+  function unmountCarousel(){clearTimeout(fallbackTimer);fallback.hidden=true;carouselState('loading');pendingSelection=null;localSelection=null;frame.remove();frame.removeAttribute('src');}
   const command=detail=>{if(!preview)window.dispatchEvent(new CustomEvent('phone-command',{detail:{...detail,hostId:host?.hostId}}));};
   let link=false,lastDesktopState=null,host=null,lastHostAt=0,restoring=false,preview=false,liveBeforePreview=null,returningToGames=false,accepted=false,connectionIssue='',hostWarning='',pairVersion=0;
   const isLive=()=>accepted&&link&&host&&host.clientId===app.id&&Date.now()-lastHostAt<5500&&!preview;
-  let selectedRemoteGame=null;
+  const gameLabels={subway:'Subway',redlight:'Red Light Green Light',jumprope:'Jump Rope',track:'Track & Field'};
+  let selectedRemoteGame=null,pendingSelection=null,localSelection=null;
+  const validSelection=m=>Object.hasOwn(gameLabels,m.game)&&Number.isFinite(m.position)&&typeof m.selectionId==='string'&&/^[a-z0-9-]{1,80}$/i.test(m.selectionId)&&Number.isSafeInteger(m.selectionRevision)&&m.selectionRevision>0;
   function updateSelection(m){
-    if(m.label)gallery.querySelector('#remoteGame').textContent=m.label;
-    if(['subway','redlight','jumprope','track'].includes(m.game))selectedRemoteGame=m.game;
+    if(!Object.hasOwn(gameLabels,m.game))return;
+    gallery.querySelector('#remoteGame').textContent=gameLabels[m.game];
+    selectedRemoteGame=m.game;
     gallery.querySelector('#remotePlay').disabled=!selectedRemoteGame||gallery.classList.contains('is-disconnected');
   }
   function chooseGame(game){
@@ -39,10 +42,20 @@ import {connectionExplanation} from '../engine/lib/connection-explanation.js';
     if(preview){if(motionBanner.dataset.state!=='ready'){setMotion({status:'ready'});return;}window.ControllerDev.show('playing');return;}
     if(!isLive()||gallery.classList.contains('is-disconnected')){message('Waiting for your PC. Keep this page open.');return;}
     if(window.PhoneMotion?.status!=='ready'){message('Enable motion to start playing.');motionBanner.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
-    command({t:'carousel-pick',game});message('Opening on your PC…');
+    const selection=localSelection?.game===game?{selectionId:localSelection.selectionId,selectionRevision:localSelection.selectionRevision,position:localSelection.position}:{};
+    command({t:'carousel-pick',game,...selection});message('Opening on your PC…');
   }
   gallery.querySelector('#remotePlay').onclick=()=>chooseGame(selectedRemoteGame);
-  function forwardState(m){lastDesktopState=m;frame.contentWindow?.postMessage(m,location.origin);updateSelection(m);}
+  function forwardState(m){
+    if(!Number.isFinite(m.position)||!Object.hasOwn(gameLabels,m.game))return;
+    lastDesktopState=m;
+    if(pendingSelection){
+      const ack=m.selectionAck,matched=ack?.id===pendingSelection.selectionId&&ack.revision>=pendingSelection.selectionRevision;
+      if(!matched&&(ack||Math.abs(m.position-pendingSelection.position)>.000001))return;
+      pendingSelection=null;
+    }
+    frame.contentWindow?.postMessage(m,location.origin);updateSelection(m);
+  }
   window.addEventListener('phone-carousel',e=>{if(paired&&(!host||host.hostId===e.detail.hostId)){forwardState(e.detail);}});
   window.addEventListener('message',e=>{
     if(e.origin!==location.origin||e.source!==frame.contentWindow||!paired)return;
@@ -50,9 +63,13 @@ import {connectionExplanation} from '../engine/lib/connection-explanation.js';
     if(m.t==='carousel-error'){clearTimeout(fallbackTimer);showFallback();}
     if(m.t==='carousel-mounted'){if(preview)frame.contentWindow.postMessage({t:'carousel-state',position:0},location.origin);if(lastDesktopState)forwardState(lastDesktopState);command({t:'carousel-sync'});}
     if(m.t==='carousel-loaded'){clearTimeout(fallbackTimer);carouselState('ready');fallback.hidden=true;carouselMount.hidden=false;}
-    if(m.t==='carousel-state'&&m.label){updateSelection(m);if(!preview)app.preference('selectedGame',m.label);}
+    if(m.t==='carousel-state'&&m.label){
+      if(m.localInput&&!validSelection(m))return;
+      if(m.localInput&&validSelection(m))pendingSelection=localSelection={game:m.game,position:m.position,selectionId:m.selectionId,selectionRevision:m.selectionRevision};
+      updateSelection(m);if(!preview&&Object.hasOwn(gameLabels,m.game))app.preference('selectedGame',gameLabels[m.game]);
+    }
     if(m.t==='carousel-pick')chooseGame(m.game);
-    if(isLive()&&m.t==='carousel-move'&&!gallery.classList.contains('is-disconnected'))command(m);
+    if(isLive()&&m.t==='carousel-move'&&validSelection(m)&&!gallery.classList.contains('is-disconnected'))command(m);
   });
   gallery.querySelector('#remoteSense').onclick=()=>{if(preview)setMotion({status:'ready',text:'Preview: motion enabled'});else window.PhoneMotion?.enable();};
   const $=id=>root.querySelector('#'+id), video=$('scanVideo'),canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
@@ -116,7 +133,7 @@ import {connectionExplanation} from '../engine/lib/connection-explanation.js';
   function renderHost(m){
     const changed=host?.hostId!==m.hostId;host=m;lastHostAt=Date.now();
     if(changed)returningToGames=false;
-    if(changed&&!preview){lastDesktopState=null;window.dispatchEvent(new CustomEvent('phone-profile'));command({t:'carousel-sync'});}
+    if(changed&&!preview){lastDesktopState=null;pendingSelection=null;localSelection=null;frame.contentWindow?.postMessage({t:'carousel-reset'},location.origin);window.dispatchEvent(new CustomEvent('phone-profile'));command({t:'carousel-sync'});}
     const hub=m.game==='hub';if(hub)returningToGames=false;$('controlConnect').hidden=true;gallery.hidden=!hub&&!returningToGames;
     if(hub){mountCarousel();}
     else if(!returningToGames){unmountCarousel();}
@@ -208,7 +225,7 @@ import {connectionExplanation} from '../engine/lib/connection-explanation.js';
 
   window.addEventListener('phone-page',e=>{if(e.detail!=='controller')stopCamera();renderConnection();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});addEventListener('pagehide',stopCamera);
-  window.addEventListener('phone-link',e=>{link=e.detail.connected;if(preview){if(liveBeforePreview)liveBeforePreview.link=link;return;}gallery.classList.toggle('is-disconnected',!link);if(paired&&!link)window.PhoneLive.connection(true);else if(paired)command({t:'carousel-sync'});renderConnection();});
+  window.addEventListener('phone-link',e=>{link=e.detail.connected;if(preview){if(liveBeforePreview)liveBeforePreview.link=link;return;}gallery.classList.toggle('is-disconnected',!link);if(paired&&!link)window.PhoneLive.connection(true);else if(paired){if(pendingSelection)command({t:'carousel-move',...pendingSelection});command({t:'carousel-sync'});}renderConnection();});
   method(app.preferences.connectionMethod==='code'?'code':'scan');
   // Keep the QR in the URL throughout welcome, guide and profile setup, including reloads.
   // Startup and the final profile save are the only paths that resume pairing.

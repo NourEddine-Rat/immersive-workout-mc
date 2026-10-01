@@ -1111,6 +1111,7 @@
 
                     snapTimer = setTimeout(() => {
                         target = Math.round(target);
+                        localSelectionChanged();
                     }, 160);
                 }
 
@@ -1145,6 +1146,7 @@
                         Math.min(180, delta * unit)
                     ) * .0038;
 
+                    localSelectionChanged();
                     scheduleSnap();
                 }, {
                     passive: false
@@ -1168,6 +1170,7 @@
                                   (e.key === 'ArrowRight' ? 1 : -1);
 
                         clearTimeout(snapTimer);
+                        localSelectionChanged();
                     }
                 });
 
@@ -1210,6 +1213,7 @@
                     moved += Math.abs(dx);
                     target -= dx / unit;
                     velocity = (-dx / unit) / Math.max(8, now - lastTime);
+                    localSelectionChanged();
 
                     lastX = e.clientX;
                     lastTime = now;
@@ -1232,6 +1236,7 @@
                             ? 0
                             : Math.max(remoteView ? -.35 : -2, Math.min(remoteView ? .35 : 2, velocity * 190)))
                     );
+                    localSelectionChanged();
 
                     if (e.type === 'pointerup' && moved < 6) {
                         const rect = stage.getBoundingClientRect();
@@ -1279,31 +1284,75 @@
 
                 // Share the same renderer and gesture physics with the phone controller.
                 let lastPublished = null, lastPublishTime = 0, remoteInitialized = !remoteView, remotePresented = false;
+                const selectionId = crypto.randomUUID?.() || `selection-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                let selectionRevision = 0, awaitingSelection = false, selectionAck = null;
+                const selectionStamp = () => ({selectionId, selectionRevision});
                 function remoteSend(message) {
                     if (remoteView) parent.postMessage(message, location.origin);
                     else hostBridge.send(message);
                 }
-                function publishSelection() {
+                function publishSelection(localInput = false) {
                     const selected = items[mod(Math.round(target), items.length)];
-                    remoteSend({t: 'carousel-state', position: target, label: selected?.label, game: selected?.environment});
+                    remoteSend({t: 'carousel-state', position: target, label: selected?.label, game: selected?.environment,
+                        ...(remoteView && localInput ? {...selectionStamp(), localInput: true} : {}),
+                        ...(!remoteView && selectionAck ? {selectionAck} : {})});
+                }
+                function localSelectionChanged() {
+                    if (!remoteInitialized || !items.length) return;
+                    lastPublished = target; lastPublishTime = performance.now();
+                    if (remoteView) {
+                        selectionRevision++; awaitingSelection = true;
+                        // Publish the choice before its network request, without waiting
+                        // for a render frame. Play can use this exact choice immediately.
+                        publishSelection(true);
+                        const selected = items[mod(Math.round(target), items.length)];
+                        remoteSend({t: 'carousel-move', position: target, game: selected?.environment, ...selectionStamp()});
+                    } else publishSelection();
+                }
+                function acceptSelectionStamp(message) {
+                    if (message.selectionId === undefined && message.selectionRevision === undefined) return true;
+                    if (typeof message.selectionId !== 'string' || !/^[a-z0-9-]{1,80}$/i.test(message.selectionId) ||
+                        !Number.isSafeInteger(message.selectionRevision) || message.selectionRevision < 1) return false;
+                    if (selectionAck?.id === message.selectionId && message.selectionRevision < selectionAck.revision) return false;
+                    selectionAck = {id: message.selectionId, revision: message.selectionRevision};
+                    return true;
                 }
                 function openSelected(selected) {
-                    if (remoteView) remoteSend({t: 'carousel-pick', game: selected.environment});
-                    else if (window.phoneGate?.ready) window.gameAbout.open(selected);
+                    if (!selected?.environment || !items.includes(selected)) return;
+                    target = items.indexOf(selected);
+                    if (remoteView) {
+                        localSelectionChanged();
+                        remoteSend({t: 'carousel-pick', game: selected.environment, position: target, ...selectionStamp()});
+                    } else if (window.phoneGate?.ready) {
+                        lastPublished = target; publishSelection();
+                        window.gameAbout.open(selected);
+                    }
                 }
                 function receiveRemote(m) {
                     if (!remoteView && (!hostBridge.active || (m.hostId && m.hostId !== hostBridge.id))) return;
-                    if (m.t === 'carousel-state' && remoteView && Number.isFinite(m.position) && !drag) {
+                    if (m.t === 'carousel-reset' && remoteView) awaitingSelection = false;
+                    if (m.t === 'carousel-state' && remoteView && Number.isFinite(m.position)) {
+                        if (awaitingSelection) {
+                            const acknowledged = m.selectionAck?.id === selectionId && m.selectionAck.revision >= selectionRevision;
+                            // Older pages have no revision metadata; a matching position
+                            // still proves that they received the current choice.
+                            if (!acknowledged && (m.selectionAck || Math.abs(m.position - target) > .000001)) return;
+                            awaitingSelection = false;
+                        }
+                        if (drag) return;
                         // Start at the PC's selection, without scrolling through other games while loading.
                         if (!remotePresented) position = m.position;
                         target = m.position; lastPublished = target; remoteInitialized = true; publishSelection();
                     }
                     if (!remoteView && m.t === 'carousel-move' && m.clientId === hostBridge.clientId && Number.isFinite(m.position)) {
+                        if (m.game !== undefined && items[mod(Math.round(m.position), items.length)]?.environment !== m.game) return;
+                        if (!acceptSelectionStamp(m)) return;
                         clearTimeout(snapTimer); target = Math.max(-100000, Math.min(100000, m.position)); lastPublished = target;
+                        publishSelection();
                     }
                     if (!remoteView && m.t === 'carousel-pick' && m.clientId === hostBridge.clientId) {
                         const selected = items.find(item => item.environment === m.game);
-                        if (selected) openSelected(selected);
+                        if (selected && acceptSelectionStamp(m)) openSelected(selected);
                     }
                     if (!remoteView && ['hello', 'carousel-sync'].includes(m.t)) publishSelection();
                 }
@@ -1443,9 +1492,7 @@
                     previous = now;
                     const elapsed = now * 0.001;
                     if (remoteInitialized && target !== lastPublished && now - lastPublishTime > 32) {
-                        lastPublished = target; lastPublishTime = now;
-                        if (remoteView) { remoteSend({t: 'carousel-move', position: target}); publishSelection(); }
-                        else publishSelection();
+                        localSelectionChanged();
                     }
 
                     if (!document.hidden) {

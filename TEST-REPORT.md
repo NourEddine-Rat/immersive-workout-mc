@@ -2,6 +2,22 @@
 
 The connection now uses encrypted WebRTC data channels directly between the phone and PC. The hosted server provides files, pairing and signaling. It does not relay motion, controls, profiles, calibration or game history. No STUN/TURN service or WebSocket gameplay fallback is configured. Play requires a verified local route and fresh motion.
 
+## Map loading, training and production controls
+
+Validation: **91 unit/signaling/hosting checks, 35 browser scenarios, and one additional Chrome/WebKit scenario passed.** The complete browser suite passed all 34 scenarios then present. After the final training graphics-failure guard, five focused training/production scenarios passed, including the new 35th scenario. The diagnostic schema's additional asset-event assertions also passed separately. Tests ran locally; the live website was not opened or interacted with.
+
+- All four actual maps load and render before being revealed. All 13 packaged models, their buffers, textures, exact filename case and Meshopt data pass integrity checks. A transient Red Light HTTP 503 recovers automatically; missing required files and corrupt textures stop startup with Retry.
+- Shared glass loading screens report measured bytes, use an indeterminate bar when the total is unknown, distinguish downloading from graphics preparation, and keep unfinished content inert. Desktop and narrow screenshots were reviewed. Module-download failure, keyboard-accessible recovery and graphics loss during the ready transition are covered.
+- Required training room, coach, hands and guides finish loading before calibration can begin. An interrupted guide retries; a missing coach blocks with recovery. Local pairing remains active during loading, with no premature remote actions or unsolicited microphone requests.
+- Production origins ignore developer and cheat queries on every map. Developer controls and keyboard bypasses are absent. Local preview mode requires explicit opt-in on loopback.
+- A real local WebRTC pair completes game selection → training → save → the intended game without another scan. The test substitutes repetition timing at the profiling boundary; motion events, warm-up, calibration fitting, storage, user identity and transport remain real. Storage failure stays on the result screen until saving succeeds; ISO-dated phone calibration can restore on the PC.
+- A separate race regression holds the phone's selection update while delivering an older PC echo. Immediate Play still opens the chosen game, and PC-driven selection continues to synchronize.
+- Graphics failure stops game simulation and training behind the error screen instead of allowing hidden play or results. Pending training transitions, calibration callbacks and a startup that finishes after failure cannot resume the routine.
+
+The retained Heroku log window contained no Red Light download request, so it does not establish the exact cause of the reported incident. Code inspection found unbounded downloads, absent GLB progress, unawaited assets and swallowed required-asset failures; these paths now have bounded retries, validation and actionable errors. New sanitized asset failure categories enter the existing connection timeline, while detailed exceptions remain in the browser's downloaded report.
+
+Actual iPhone/PC hardware, the user's Wi-Fi and live map behavior still require the user's check after reloading both devices. Synthetic tests do not guarantee every browser, router or graphics driver.
+
 ## Microphone fallback and connection recovery
 
 Current local validation: **65 unit/signaling/hosting checks, 22 browser integration scenarios, and one additional Chrome/WebKit scenario passed.** The complete browser run passed 21 scenarios and exposed an older server-restart expectation; after updating that scenario for intentional connection preservation, its focused rerun passed. No application change was needed for that test correction.

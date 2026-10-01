@@ -37,7 +37,11 @@ export function selectUser(id, phoneProfile) {
     const previous=localStorage.getItem('inmotion.player.v1');
     let p=JSON.parse(localStorage.getItem(`arcade.calibration.${id}`)||'null');
     if(!previous&&!p)p=load(); // Preserve existing training on first pairing.
-    if(phoneProfile?.v===1&&Number.isFinite(phoneProfile.created)&&(!p||phoneProfile.created>p.created))p=phoneProfile;
+    // Training emits ISO dates; earlier calibration versions used epoch ms.
+    // Compare both forms so a trained phone can restore its profile on a PC.
+    const created=value=>typeof value==='number'?value:typeof value==='string'?Date.parse(value):NaN;
+    const phoneCreated=created(phoneProfile?.created),savedCreated=created(p?.created);
+    if(phoneProfile?.v===1&&Number.isFinite(phoneCreated)&&(!p||!Number.isFinite(savedCreated)||phoneCreated>savedCreated))p=phoneProfile;
     localStorage.setItem('inmotion.player.v1',id);
     if(p?.v===1){localStorage.setItem(KEY,JSON.stringify(p));localStorage.setItem(`arcade.calibration.${id}`,JSON.stringify(p));}
     else localStorage.removeItem(KEY);

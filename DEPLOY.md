@@ -31,6 +31,8 @@ Share `https://YOUR-APP-NAME.herokuapp.com/` with beta testers. Open it on the P
 
 The glass entry panel closes as soon as the phone has a **verified direct local connection**. You can browse the carousel before enabling motion. On the phone, tap **Enable motion** before playing and allow access. Keep the phone unlocked. The first game offers movement training. Missing motion pauses gameplay; a lost direct connection shows the carousel pairing panel again.
 
+Games and training stay covered by a glass progress screen until required models, textures and guides finish downloading and the first scene is rendered. Interrupted downloads retry automatically; missing files, decoding failures and graphics loss offer Retry and an error report. Training results must save successfully before continuing to the selected game. Developer panels, keyboard bypasses and preview query parameters are disabled on hosted and LAN origins; local development requires `?dev=1` on loopback.
+
 If automatic discovery stalls, the PC offers **Connection help → Allow microphone & retry**. This explicit fallback briefly opens and immediately stops the PC microphone; no audio is recorded or sent. It may expose the local address to the browser without asking users to enter an IP. Microphone denial and absent hardware are handled visibly. Normal pairing, game navigation and reconnect do not request microphone capture automatically.
 
 For a custom domain, configure it and its TLS certificate in Heroku. Optionally set `PUBLIC_URL=https://play.example.com` (HTTPS origin only, no path). Without this setting, the domain used to open the app determines the phone and TV links.

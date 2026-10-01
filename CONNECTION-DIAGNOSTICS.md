@@ -17,6 +17,7 @@ The loader also offers a report when phone startup fails. If the diagnostics scr
 - Pair lookup result, WebSocket open/error/close code, heartbeat timeout, registration, accepted/expired/busy pairing, and offer/answer/restart forwarding.
 - Each negotiation attempt, gathering/ICE/DTLS/SCTP state, candidate acceptance/rejection and address family, offer/answer processing, candidate-add errors, data-channel open/error/close, local verification and peer proof.
 - Explicit microphone recovery requests, grants, cancellation and sanitized failure reasons. No audio, device labels or microphone contents are captured. `microphone-granted` is recorded only after all returned tracks have stopped.
+- Game and training startup outcomes (`asset-load-ready`, `asset-load-failed`), including download/preparation stage and sanitized HTTP, decoding, timeout or graphics failure category. Detailed asset exceptions stay in the originating browser's downloadable report.
 - Every five seconds while connecting and fifteen seconds while connected: candidate counts, candidate-pair progress, STUN check request/response counts, transport byte counts, round-trip time and last-received age. These are transport counters, not motion samples.
 - Server receipt time, client time and elapsed time, page trace ID, socket ID, connection ID and server boot ID. Compare attempt numbers within one page trace. Client clocks can differ; use server receipt times for cross-device order.
 
@@ -37,6 +38,7 @@ New entries start with `connection_trace`; filter the JSON `session` field using
 | Last stage/evidence | Meaning and next check |
 | --- | --- |
 | No `ws-open`, HTTP lookup error | Internet, cookies, origin, page loading, server availability. |
+| `asset-load-failed` | A required map, texture, training guide, module or graphics preparation failed. Use the loading screen's error report and Retry; local pairing and Internet asset downloads are separate stages. |
 | `waiting-offer` / `waiting-answer` | Pairing succeeded but the other device has not processed the SDP. Check its visibility, errors and server forwarding records. |
 | No accepted local candidates | Browser/OS permissions, disabled WebRTC, or no supported local interface. |
 | Both descriptions set, zero successful candidate pairs | LAN discovery/reachability. Try the PC microphone fallback, then check mDNS, guest/client isolation, UDP firewall, VPN and applicable PC browser/OS permissions. An absent iPhone Local Network prompt is not proof of denial. |

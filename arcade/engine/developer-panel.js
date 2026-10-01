@@ -11,8 +11,12 @@
 //     onOpen   the game's own dev mode (keyboard play, no phone needed)
 //     settle   called after each screen: stop cards from pressing themselves
 //
-// A "Dev" pill bottom right opens it; ?dev=1 also does. ← / → step through
-// the screens while it is open. "Leave dev" reloads without it.
+// On loopback only, ?dev=1 enables the panel. ← / → step through the
+// screens while it is open. "Leave dev" reloads without it.
+
+import { devAllowed } from './lib/dev-policy.js';
+
+const inactivePanel = Object.freeze({ open() {}, async show() {} });
 
 const CSS = `
 .xdev { position: fixed; z-index: 2147483000; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
@@ -40,6 +44,7 @@ const CSS = `
 `;
 
 export function devPanel({ screens, pocket = null, onOpen = () => {}, settle = () => {} }) {
+  if (!devAllowed) return inactivePanel;
   if (!document.getElementById('xdev-css')) {
     const st = document.createElement('style'); st.id = 'xdev-css'; st.textContent = CSS; document.head.appendChild(st);
   }

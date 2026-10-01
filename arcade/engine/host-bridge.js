@@ -3,13 +3,14 @@ import {screenSession} from './screen-session.js';
 import {readSessions, mergeSessions, JOURNAL_KEY} from './activity-store.js';
 import {uuid} from './lib/identity.js';
 import {lanIPv4} from './lib/local-route.js';
+import {devAllowed} from './lib/dev-policy.js';
 import * as Profile from './profile.js';
 const remote = new URLSearchParams(location.search).get('controller') === '1';
 const route = location.pathname;
 const game = route.includes('/subway')?'subway':route.includes('/track')?'track':route.includes('/red-light')?'redlight':route.includes('/jump-rope')?'jumprope':route.includes('/training')?'training':'hub';
 const id = uuid();
 let socket, stopped=false, opening=false, retry, pairedUser=null, pairedClient=null, lastPairedClient=null, active=false, uiRevision=0, lastUI='', buttons=[], snapshot=null, journal=readSessions(), current=null;
-const visible = el => el && !el.closest('[hidden]') && getComputedStyle(el).display!=='none' && el.getClientRects().length>0;
+const visible = el => el && !el.closest('[hidden], [inert]') && getComputedStyle(el).display!=='none' && getComputedStyle(el).visibility!=='hidden' && el.getClientRects().length>0;
 const listeners=new Set(),connectionListeners=new Set();
 let direct,lastSample=0,firstSample=0,motion='needed';
 const ADDRESS_KEY='inmotion.local-address.v1';
@@ -142,9 +143,9 @@ export const hostBridge={
   begin(){
     current={id:uuid(),userId:pairedUser?.id||'unpaired',game,startedAt:Date.now(),updatedAt:Date.now(),complete:false,steps:0};
   },
-  step(){if(current&&!current.complete&&['play','running'].includes(snapshot?.()?.phase))current.steps++;},
+  step(){if(window.boot?.state!=='failed'&&current&&!current.complete&&['play','running'].includes(snapshot?.()?.phase))current.steps++;},
   update(values,complete=false){
-    if(!current||current.complete||window.__devPreview||new URLSearchParams(location.search).has('dev'))return;
+    if(!current||current.complete||devAllowed&&window.__devPreview)return;
     if(current.userId==='unpaired'&&pairedUser)current.userId=pairedUser.id;
     Object.assign(current,values,{updatedAt:Date.now(),complete});
     journal=mergeSessions(journal,[current]);save();

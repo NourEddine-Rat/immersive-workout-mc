@@ -80,7 +80,7 @@ export class Arena {
    * all of them.
    */
   async trees(loader) {
-    const [tex, meta] = await Promise.all([new THREE.TextureLoader().loadAsync('./models/trees.webp'), fetch('./models/trees.json').then(r => r.json())]);
+    const [tex, meta] = await Promise.all([loader.loadTexture('./models/trees.webp'), loader.loadJSON('./models/trees.json')]);
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
     const pos = [], uv = [], nrm = [], col = [], idx = [];
     const card = (x, z, yaw, w, h, m, shade) => {

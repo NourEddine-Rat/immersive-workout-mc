@@ -11,7 +11,8 @@
 // "Subway Surfers Dog" by Rajio123 (sketchfab.com/Rajio123), CC-BY-4.0.
 
 import * as THREE from 'three';
-import { loadGltfPatched, index16 } from './world.js';
+import { index16 } from './world.js';
+import { createAssetLoader } from '../../engine/asset-loader.js';
 import { LANE_X } from './lanes.js';
 
 const HEIGHT = 1.3;           // metres tall, standing (the eye is 1.55 m up): a big dog reads at 6 m
@@ -23,30 +24,28 @@ export class DogChase {
     this.phase = 0; this.x = 0; this.gap = 20; this.t = 0;
   }
 
-  async load() {
-    try {
-      const gltf = await loadGltfPatched('./models/dog/chase-dog.gltf');
-      const root = gltf.scene;
-      root.traverse(o => { if (o.isMesh) { index16(o.geometry); const m = o.material; o.material = new THREE.MeshLambertMaterial({ map: m.map, color: 0xffffff }); if (m.map) m.map.colorSpace = THREE.SRGBColorSpace; } });
-      const box = new THREE.Box3().setFromObject(root);
-      const size = box.getSize(new THREE.Vector3());
-      const s = HEIGHT / size.y;
-      root.scale.setScalar(s);
-      const b2 = new THREE.Box3().setFromObject(root);
-      root.position.y = -b2.min.y;
-      root.position.z = -(b2.min.z + b2.max.z) / 2;      // pivot at the body's centre, so pitch rocks about the middle
-      this.length = size.z * s;
-      const body = new THREE.Group(); body.add(root);
-      const holder = new THREE.Group(); holder.add(body);
-      // a soft shadow: the one cue that puts it on the rails instead of in the air
-      const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false }));
-      sh.rotation.x = -Math.PI / 2; sh.scale.set(1, 1.6, 1); sh.position.y = 0.02;
-      holder.add(sh);
-      this.node = holder; this.body = body; this.shadow = sh;
-      this.node.visible = false;
-      this.scene.add(this.node);
-      return true;
-    } catch (e) { console.warn('[dog] could not load', e); return false; }
+  async load(loader = createAssetLoader()) {
+    const gltf = await loader.loadAsync('./models/dog/chase-dog.gltf');
+    const root = gltf.scene;
+    root.traverse(o => { if (o.isMesh) { index16(o.geometry); const m = o.material; o.material = new THREE.MeshLambertMaterial({ map: m.map, color: 0xffffff }); if (m.map) m.map.colorSpace = THREE.SRGBColorSpace; } });
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const s = HEIGHT / size.y;
+    root.scale.setScalar(s);
+    const b2 = new THREE.Box3().setFromObject(root);
+    root.position.y = -b2.min.y;
+    root.position.z = -(b2.min.z + b2.max.z) / 2;      // pivot at the body's centre, so pitch rocks about the middle
+    this.length = size.z * s;
+    const body = new THREE.Group(); body.add(root);
+    const holder = new THREE.Group(); holder.add(body);
+    // a soft shadow: the one cue that puts it on the rails instead of in the air
+    const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false }));
+    sh.rotation.x = -Math.PI / 2; sh.scale.set(1, 1.6, 1); sh.position.y = 0.02;
+    holder.add(sh);
+    this.node = holder; this.body = body; this.shadow = sh;
+    this.node.visible = false;
+    this.scene.add(this.node);
+    return true;
   }
 
   /**

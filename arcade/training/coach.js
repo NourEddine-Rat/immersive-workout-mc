@@ -16,8 +16,6 @@
 // Its own little renderer and canvas, transparent, so it sits in the glass.
 
 import * as THREE from 'three';
-import { GLTFLoader } from '../engine/three/GLTFLoader.js';
-import { MeshoptDecoder } from '../engine/three/libs/meshopt_decoder.module.js';
 import { Crowd } from '../engine/body/bots.js';
 import { qa } from '../engine/body/rig.js';
 
@@ -62,8 +60,7 @@ export class Coach {
     this.crowd = new Crowd(this.scene, { style: 'athlete' });
   }
 
-  async load(url) {
-    const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+  async load(url, loader) {
     await this.crowd.load(url, loader);
     this.bot = this.crowd.add(7, 0, 0, { scale: 1 });
     for (const m of this.bot.patches || []) m.visible = false;      // just the body: no bib, no number
