@@ -1,8 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import WebSocket from 'ws';
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
+test('ICE restart signaling is bounded and strips unrelated data',()=>{
+ const run=spawnSync('python3',['-c',`import serve
+base={'kind':'offer','hostId':'pc','clientId':'phone','peerId':'pair','negotiationId':'new','restartOf':'old','description':{'type':'offer','sdp':'v=0\\r\\n'},'audio':'private','rows':[[1]]}
+out=serve.rtc_message(base)
+assert out['restartOf']=='old'
+assert 'audio' not in out and 'rows' not in out
+for bad in ('', 'x'*101, 123, 'new'):
+ assert serve.rtc_message({**base,'restartOf':bad}) is None
+assert 'restartOf' not in serve.rtc_message({**base,'kind':'answer','description':{'type':'answer','sdp':'v=0\\r\\n'}})
+assert serve.rtc_message({**base,'kind':'diagnostic','diagnostic':{'phase':'reconnecting','ice':'disconnected','connection':'disconnected','reason':'','localCount':1,'remoteCount':1}})
+`],{cwd:new URL('../',import.meta.url),encoding:'utf8'});
+ assert.equal(run.status,0,run.stderr);
+});
 async function until(fn){for(let i=0;i<100;i++){if(fn())return;await delay(10);}assert.fail('Signaling timeout');}
 test('pairing ownership, phone replacement, PC navigation and stale negotiation isolation',async()=>{
  const child=spawn('python3',['-u','-c',"import serve; s=serve.Dual(('127.0.0.1',0),serve.Handler); print(s.server_port,flush=True); s.serve_forever()"],{cwd:new URL('../',import.meta.url),stdio:['ignore','pipe','ignore']}),sockets=[];

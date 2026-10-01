@@ -31,6 +31,8 @@ Share `https://YOUR-APP-NAME.herokuapp.com/` with beta testers. Open it on the P
 
 The glass entry panel closes as soon as the phone has a **verified direct local connection**. You can browse the carousel before enabling motion. On the phone, tap **Enable motion** before playing and allow access. Keep the phone unlocked. The first game offers movement training. Missing motion pauses gameplay; a lost direct connection shows the carousel pairing panel again.
 
+If automatic discovery stalls, the PC offers **Connection help → Allow microphone & retry**. This explicit fallback briefly opens and immediately stops the PC microphone; no audio is recorded or sent. It may expose the local address to the browser without asking users to enter an IP. Microphone denial and absent hardware are handled visibly. Normal pairing, game navigation and reconnect do not request microphone capture automatically.
+
 For a custom domain, configure it and its TLS certificate in Heroku. Optionally set `PUBLIC_URL=https://play.example.com` (HTTPS origin only, no path). Without this setting, the domain used to open the app determines the phone and TV links.
 
 The TV button shows a link with `?desktop=1`, so Android-based TV browsers stay on the game screen. It also offers HDMI instructions and explains that TV support is a beta preview. Phones must still open the controller link, not the TV link.
@@ -39,7 +41,7 @@ The TV button shows a link with `?desktop=1`, so Android-based TV browsers stay 
 
 **Keep `web=1`. Do not add multiple web dynos or worker processes.** Independent tester pairs are isolated in separate in-memory rooms inside this process. Each PC browser receives an opaque HttpOnly screen cookie; its QR/code joins only its room. Tabs in the same browser share that screen, with the most recently opened PC page active. Unpaired phones cannot send controls or read a player's history. Idle rooms expire after 30 minutes without connected sockets.
 
-No database means that deploying, restarting, or recycling the dyno clears active rooms and changes their codes. The PC reconnects and shows a fresh code. The phone explains that the old code expired; scan the new QR. A game interrupted by this can use **Reconnect phone** to return to the carousel. Profiles, calibration and completed activity already saved in browser localStorage remain on those browsers. Activity sent to the phone also remains there. This is not cloud backup: clearing site data or changing browser/domain can lose local history.
+No database means that deploying, restarting, or recycling the dyno clears active rooms and changes their codes. The PC reconnects and obtains a fresh code. An already verified local connection remains usable despite the expired signaling room. If that transport subsequently fails or the PC navigates, the phone explains that the old code expired; scan the new QR. A game interrupted by this can use **Reconnect phone** to return to the carousel. Profiles, calibration and completed activity already saved in browser localStorage remain on those browsers. Activity sent to the phone also remains there. This is not cloud backup: clearing site data or changing browser/domain can lose local history.
 
 Heroku WebSockets are kept alive by regular heartbeat traffic. A network interruption can still happen, and mobile operating systems may suspend background pages. Use Safari or Chrome directly rather than a social app's embedded browser. Hardware motion accuracy and power-management behavior need a real iPhone/Android check before broad release.
 

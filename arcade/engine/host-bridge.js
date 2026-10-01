@@ -8,7 +8,7 @@ const remote = new URLSearchParams(location.search).get('controller') === '1';
 const route = location.pathname;
 const game = route.includes('/subway')?'subway':route.includes('/track')?'track':route.includes('/red-light')?'redlight':route.includes('/jump-rope')?'jumprope':route.includes('/training')?'training':'hub';
 const id = uuid();
-let socket, stopped=false, retry, pairedUser=null, pairedClient=null, lastPairedClient=null, active=false, uiRevision=0, lastUI='', buttons=[], snapshot=null, journal=readSessions(), current=null;
+let socket, stopped=false, opening=false, retry, pairedUser=null, pairedClient=null, lastPairedClient=null, active=false, uiRevision=0, lastUI='', buttons=[], snapshot=null, journal=readSessions(), current=null;
 const visible = el => el && !el.closest('[hidden]') && getComputedStyle(el).display!=='none' && el.getClientRects().length>0;
 const listeners=new Set(),connectionListeners=new Set();
 let direct,lastSample=0,firstSample=0,motion='needed';
@@ -81,13 +81,15 @@ direct=new DirectLink({role:'host',signal,addressHint,onMessage:receive,onState:
   connectionState();if(state.direct){publish();syncHistory();}
 }});
 async function connect(){
-  if(remote||stopped||socket?.readyState<2)return;
-  try{await screenSession(true);}catch(error){if(!direct.up){direct.state('signaling',error.message);connectionState();}if(!stopped)retry=setTimeout(connect,2500);return;}
+  if(remote||stopped||opening||socket?.readyState<2)return;
+  clearTimeout(retry);opening=true;
+  try{await screenSession(true);}catch(error){if(!direct.up){direct.state('signaling',error.message);connectionState();}if(!stopped)retry=setTimeout(connect,2500);return;}finally{opening=false;}
   if(stopped)return;
   if(socket?.readyState<2)return;
   diagnostic?.record('ws-opening');
   const ws=socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws?role=console`);
-  ws.onopen=()=>{lastSignal=Date.now();diagnostic?.record('ws-open');signal({t:'host-register',hostId:id});diagnostic?.flush();};
+  let recoverOnPeer=!!direct.peer;
+  ws.onopen=()=>{if(socket!==ws)return;lastSignal=Date.now();diagnostic?.record('ws-open');signal({t:'host-register',hostId:id});diagnostic?.flush();};
   ws.onmessage=e=>{
     if(socket!==ws)return;
     let m;try{m=JSON.parse(e.data);}catch{return;}
@@ -100,12 +102,13 @@ async function connect(){
     }
     if(!active)return;
     if(m.t==='peer-phone'){
+      const resume=recoverOnPeer;recoverOnPeer=false;
       if(!m.clientId||!m.peerId){pairedClient=null;pairedUser=null;direct.close();return;}
       const same=direct.peer?.peerId===m.peerId&&direct.peer?.hostId===id;
       pairedClient=m.clientId;direct.setPeer({hostId:id,clientId:m.clientId,peerId:m.peerId});
-      // A rejoined signaling socket may have lost an offer/answer. A working
-      // data channel survives the socket outage, unfinished negotiations restart.
-      if(same&&!direct.up&&performance.now()-direct.started>3000)direct.retry();
+      // Recover once after this socket rejoins. Repeated phone join messages
+      // must not replace an offer that is already gathering or checking ICE.
+      if(resume&&same&&!direct.up)direct.recover();
     }
     if(m.t==='rtc-signal')direct.signal(m);
   };
@@ -130,7 +133,7 @@ export const hostBridge={
     if(address&&!lanIPv4(address))throw Error('Enter this PC’s private Wi-Fi IPv4 address, such as 192.168.1.20.');
     direct.addressHint=address;
     try{if(address)sessionStorage.setItem(ADDRESS_KEY,address);else sessionStorage.removeItem(ADDRESS_KEY);}catch{}
-    direct.retry();
+    direct.retry({force:true});
   },
   onMessage(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
   onConnection(listener){connectionListeners.add(listener);listener(hostBridge.connection);return ()=>connectionListeners.delete(listener);},
@@ -148,5 +151,12 @@ export const hostBridge={
     if(pairedUser&&current.userId===pairedUser.id)send({t:'session-history',userId:pairedUser.id,rows:[current]});
   }
 };
-if(!remote){connect();setInterval(publish,1000);setInterval(connectionState,250);setInterval(()=>{signal({t:'heartbeat'});if(socket?.readyState===1&&Date.now()-lastSignal>12000){diagnostic?.record('ws-timeout');socket.close();}},2000);addEventListener('online',()=>connect());addEventListener('pagehide',()=>{if(['play','running'].includes(snapshot?.()?.phase))hostBridge.update(snapshot());stopped=true;clearTimeout(retry);direct.close();socket?.close();});addEventListener('pageshow',e=>{if(e.persisted){stopped=false;connect();}});}
+if(!remote){
+  connect();setInterval(publish,1000);setInterval(connectionState,250);
+  setInterval(()=>{signal({t:'heartbeat'});if(!document.hidden&&socket?.readyState===1&&Date.now()-lastSignal>12000){diagnostic?.record('ws-timeout');socket.close();}},2000);
+  addEventListener('online',()=>connect());
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastSignal=Date.now();if(socket?.readyState===1)signal({t:'heartbeat'});else connect();}});
+  addEventListener('pagehide',()=>{if(['play','running'].includes(snapshot?.()?.phase))hostBridge.update(snapshot());stopped=true;clearTimeout(retry);direct.close();socket?.close();});
+  addEventListener('pageshow',e=>{if(e.persisted){stopped=false;lastSignal=Date.now();connect();}});
+}
 addEventListener('calibration-saved',e=>{if(pairedUser)send({t:'phone-calibration',userId:pairedUser.id,calibration:e.detail});});

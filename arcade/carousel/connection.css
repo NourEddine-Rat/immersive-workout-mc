@@ -85,12 +85,13 @@
 .pair-local-help { margin-top:12px; font-size:11px; color:#edf5f6; }
 .pair-local-help summary { cursor:pointer; text-align:center; }
 .pair-local-help p { line-height:1.65; }
-.pair-local-form label { display:block; margin-bottom:6px; }
-.pair-local-form>div { display:flex; gap:8px; }
-.pair-local-form input { flex:1; min-width:0; padding:10px; border:1px solid #ffffff50; border-radius:9px; background:#08263155; color:#fff; font:inherit; }
-.pair-local-form input::placeholder { color:#d6e3e6; }
-.pair-local-form button { border:1px solid #ffffff50; border-radius:9px; padding:9px 12px; background:#ffffff20; color:#fff; font-size:11px; }
-.pair-local-form #pair-local-feedback:empty { display:none; }
-.pair-local-form input:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+.pair-audio-help { margin-top:14px; padding:16px; border:1px solid #ffffff45; border-radius:15px; background:#08263145; }
+.pair-audio-help h3 { margin:0 0 8px; font-size:15px; line-height:1.35; }
+.pair-audio-help p { margin:8px 0 12px; }
+.pair-audio-help .pair-audio-allow { min-height:44px; max-width:100%; padding:11px 16px; border:1px solid #ffffffc0; border-radius:10px; background:#f4f9fa; color:#16313d; font-size:12px; font-weight:600; line-height:1.5; }
+.pair-audio-allow:hover:enabled { background:#fff; }
+.pair-audio-allow:disabled { opacity:.65; cursor:default; }
+.pair-audio-allow:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+.pair-audio-help #pair-audio-status { margin-bottom:0; font-size:11px; }
 .pair-local-help .connection-diagnostics { border-top:1px solid #ffffff30; margin-top:12px; padding-top:8px; }
 .pair-local-help .connection-diagnostics button { border:1px solid #ffffff50; border-radius:9px; padding:10px 12px; background:#ffffff20; color:#fff; font:inherit; }

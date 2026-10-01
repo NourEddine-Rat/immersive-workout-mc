@@ -2,18 +2,22 @@ import {uuid} from './lib/identity.js';
 import {localCandidate,localSDP,selectedLocalRoute,candidateInfo,hintedCandidate} from './lib/local-route.js';
 import './connection-diagnostics.js';
 
-const HELP='Connect both devices to the same Wi-Fi and avoid guest Wi-Fi or a VPN. If automatic discovery fails, use the PC Wi-Fi address in Connection help.';
+const HELP='Keep both devices on the same Wi-Fi. On the PC, open Connection help to try the microphone permission option. Avoid guest Wi-Fi or a VPN.';
+const DISCOVERY_TIMEOUT=60000,DISCONNECT_GRACE=5000;
+// SDP and trickle can differ in optional generation/ufrag extensions. The
+// socket identity is the candidate's foundation, component, protocol and route.
+const candidateKey=candidate=>(typeof candidate==='string'?candidate:candidate?.candidate||'').replace(/^a=/,'').trim().split(/\s+/).slice(0,8).join(' ');
 export class DirectLink {
   constructor({role,signal,addressHint='',onMessage=()=>{},onState=()=>{}}){
     this.role=role;this.signalOut=signal;this.onMessage=onMessage;this.onState=onState;
     this.addressHint=addressHint;
     this.peer=null;this.pc=null;this.status='waiting';this.up=false;this.serial=Promise.resolve();
-    this.attempt=0;
+    this.attempt=0;this.retryFailures=0;this.lastRetry=-Infinity;this.lastRecovery=-Infinity;
     this.monitor=setInterval(()=>this.tick(),250);
   }
   setPeer(peer){
     if(peer&&this.peer&&['hostId','clientId','peerId'].every(key=>peer[key]===this.peer[key]))return;
-    this.log('peer-change',{present:!!peer});this.reset();this.peer=peer;
+    this.log('peer-change',{present:!!peer});this.reset();this.retryFailures=0;this.lastRecovery=-Infinity;this.peer=peer;
     if(peer&&typeof RTCPeerConnection==='undefined'){this.state('unsupported','This browser cannot make a direct connection. Use a current Safari, Chrome or Edge browser.');return;}
     if(peer){this.state('connecting','Connecting directly over your local Wi-Fi…');if(this.role==='host')this.offer();}
     else this.state('waiting','Scan the PC code to connect over the same Wi-Fi.');
@@ -49,14 +53,23 @@ export class DirectLink {
   }
   reset(){
     const old=this.pc;this.pc=null;this.up=false;this.verified=false;this.peerVerified=false;this.route=null;
-    this.control=this.motion=null;this.ice=[];this.pendingCandidates=[];this.descriptionSent=false;this.localCandidates=[];this.remoteCandidates=[];this.lastHeard=0;this.checking=false;this.lastCheck=0;this.started=0;this.routeIssue=null;this.lastDiagnostic='';this.lastStats=0;this.rttMs=null;this.rejectedCount=0;
+    this.control=this.motion=null;this.offerInFlight=null;this.everConnected=false;this.restartUsed=false;
+    this.clearAttempt();
+    old?.close();
+  }
+  clearAttempt(){
+    this.ice=[];this.pendingCandidates=[];this.descriptionSent=false;this.restartOf=undefined;this.localIceUfrags=null;this.localCandidates=[];this.remoteCandidates=[];this.localCandidateKeys=new Set();this.remoteCandidateKeys=new Set();this.lastHeard=0;this.checking=null;this.lastCheck=0;this.started=0;this.attemptDeadline=0;this.recoveryStarted=null;this.routeIssue=null;this.lastDiagnostic='';this.lastStats=0;this.rttMs=null;this.rejectedCount=0;
     this.finishGathering?.();this.finishGathering=null;
-    clearTimeout(this.retryTimer);this.retryTimer=null;old?.close();
+    clearTimeout(this.retryTimer);this.retryTimer=null;
+  }
+  beginAttempt(negotiationId){
+    this.clearAttempt();this.negotiationId=negotiationId;this.started=performance.now();this.attemptDeadline=this.started+DISCOVERY_TIMEOUT;this.attempt++;
+    this.up=false;this.verified=false;this.peerVerified=false;this.route=null;
   }
   close(){this.setPeer(null);}
   destroy(){this.close();clearInterval(this.monitor);}
   create(negotiationId){
-    this.reset();this.negotiationId=negotiationId;this.started=performance.now();this.attempt++;
+    this.reset();this.beginAttempt(negotiationId);
     if(typeof RTCPeerConnection==='undefined'){this.state('unsupported','This browser cannot make a direct connection. Use a current Safari, Chrome or Edge browser.');return null;}
     // Intentionally no STUN/TURN servers and no cloud fallback.
     let pc;
@@ -70,8 +83,13 @@ export class DirectLink {
       const accepted=localCandidate(e.candidate);
       this.log('ice-candidate',{accepted,candidateType:e.candidate.type||parts[parts.indexOf('typ')+1],protocol:e.candidate.protocol||parts[2],addressType:address.includes('.local')?'mdns':address.includes(':')?'ipv6':'ipv4'});
       if(!accepted){this.rejectedCount++;return;}
-      const original=e.candidate.toJSON(),hint=hintedCandidate(original,this.addressHint);
+      const original=e.candidate.toJSON(),fragment=original.usernameFragment||(parts.includes('ufrag')?parts[parts.indexOf('ufrag')+1]:'');
+      // An ICE restart reuses this PC, so a late candidate from the previous
+      // credentials must not be announced under the new negotiation identity.
+      if(!this.localIceUfrags||(fragment&&this.localIceUfrags.size&&!this.localIceUfrags.has(fragment)))return;
+      const hint=hintedCandidate(original,this.addressHint);
       for(const candidate of hint?[{...original,candidate:hint},original]:[original]){
+        const key=candidateKey(candidate);if(this.localCandidateKeys.has(key))continue;this.localCandidateKeys.add(key);
         this.localCandidates.push(candidateInfo(candidate));
         const message={kind:'candidate',candidate};
         if(this.descriptionSent)this.emit(message);else this.pendingCandidates.push(message);
@@ -80,39 +98,58 @@ export class DirectLink {
     pc.onicecandidateerror=e=>{if(this.pc===pc)this.log('ice-error',{errorCode:e.errorCode});};
     for(const type of ['iceconnectionstatechange','icegatheringstatechange','signalingstatechange'])pc.addEventListener(type,()=>{
       if(this.pc!==pc)return;this.log('rtc-state');
-      if(type==='iceconnectionstatechange')this.check();
+      if(type==='iceconnectionstatechange'){
+        if(['disconnected','failed','closed'].includes(pc.iceConnectionState))this.unavailable('The direct Wi-Fi connection was interrupted. '+HELP,{transient:pc.iceConnectionState==='disconnected'});
+        else this.check();
+      }
     });
     pc.ondatachannel=e=>{if(this.pc===pc)this.channel(e.channel);};
     pc.onconnectionstatechange=()=>{
       if(this.pc!==pc)return;
       this.log('rtc-state');
-      if(['disconnected','failed','closed'].includes(pc.connectionState))this.unavailable('The direct Wi-Fi connection was interrupted. '+HELP);
+      if(['disconnected','failed','closed'].includes(pc.connectionState))this.unavailable('The direct Wi-Fi connection was interrupted. '+HELP,{transient:pc.connectionState==='disconnected'});
       else this.check();
     };
     this.state('connecting','Connecting directly over your local Wi-Fi…');
     return pc;
   }
-  async offer(){
-    if(!this.peer||this.role!=='host')return;
-    const pc=this.create(uuid());if(!pc)return;
-    try{
-      this.channel(pc.createDataChannel('control',{ordered:true}));
-      this.channel(pc.createDataChannel('motion',{ordered:false,maxRetransmits:0}));
-      const offer=await pc.createOffer();if(this.pc!==pc)return;
-      await pc.setLocalDescription(offer);await this.describeWhenGathered(pc,'offer');
-    }catch(error){if(this.pc===pc){this.error(error,{stage:'offer'});this.unavailable('Could not establish a local connection. '+HELP);}}
+  reusableChannels(){
+    const pc=this.pc;
+    return !!pc&&pc.signalingState!=='closed'&&this.control?.readyState==='open'&&this.motion?.readyState==='open'&&pc.sctp?.state!=='closed'&&!['closed','failed'].includes(pc.sctp?.transport?.state);
   }
-  async describeWhenGathered(pc,kind){
+  async offer({iceRestart=false,force=false}={}){
+    if(!this.peer||this.role!=='host'||(this.offerInFlight&&!force))return;
+    let pc,restartOf;
+    if(iceRestart&&this.reusableChannels()&&this.pc.signalingState==='stable'&&!this.restartUsed){
+      pc=this.pc;restartOf=this.negotiationId;this.beginAttempt(uuid());this.restartUsed=true;
+      this.state('connecting','Reconnecting directly over your local Wi-Fi…');
+    }else{pc=this.create(uuid());if(!pc)return;}
+    const negotiationId=this.negotiationId,operation={pc,negotiationId};this.offerInFlight=operation;
+    const current=()=>this.pc===pc&&this.negotiationId===negotiationId;
+    try{
+      if(!restartOf){
+        this.channel(pc.createDataChannel('control',{ordered:true}));
+        this.channel(pc.createDataChannel('motion',{ordered:false,maxRetransmits:0}));
+      }
+      const offer=await pc.createOffer(restartOf?{iceRestart:true}:undefined);if(!current())return;
+      this.localIceUfrags=new Set([...offer.sdp.matchAll(/^a=ice-ufrag:(.+)$/gm)].map(match=>match[1].trim()));
+      await pc.setLocalDescription(offer);if(!current())return;
+      await this.describeWhenGathered(pc,'offer',negotiationId,restartOf);
+    }catch(error){if(current()){this.error(error,{stage:'offer'});this.unavailable('Could not establish a local connection. '+HELP);}}
+    finally{if(this.offerInFlight===operation)this.offerInFlight=null;}
+  }
+  async describeWhenGathered(pc,kind,negotiationId=this.negotiationId,restartOf){
     // Send the first local addresses with the SDP, before remote ICE checks can
     // nominate a temporary, privacy-redacted peer-reflexive route.
-    if(this.pc!==pc)return;
+    const current=()=>this.pc===pc&&this.negotiationId===negotiationId;
+    if(!current())return;
     if(pc.iceGatheringState!=='complete')await new Promise(resolve=>{
       let timer;
       const done=()=>{clearTimeout(timer);pc.removeEventListener('icegatheringstatechange',changed);if(this.finishGathering===done)this.finishGathering=null;resolve();};
-      const changed=()=>{if(pc.iceGatheringState==='complete'||this.pc!==pc)done();};
+      const changed=()=>{if(pc.iceGatheringState==='complete'||!current())done();};
       this.finishGathering=done;pc.addEventListener('icegatheringstatechange',changed);timer=setTimeout(done,1800);changed();
     });
-    if(this.pc===pc){this.describe(kind,pc.localDescription);this.diagnostic('gathered');}
+    if(current()){this.describe(kind,pc.localDescription,restartOf);this.diagnostic('gathered');}
   }
   diagnostic(phase){
     if(!this.peer)return;
@@ -120,10 +157,11 @@ export class DirectLink {
     const signature=JSON.stringify(data);if(signature===this.lastDiagnostic)return;this.lastDiagnostic=signature;
     this.emit({kind:'diagnostic',diagnostic:data});
   }
-  describe(kind,description){
+  describe(kind,description,restartOf){
     // Preserve description-before-candidate ordering even if a browser gathers ICE early.
     this.log('sdp-local',{kind,localCount:this.localCandidates?.length||0});
-    this.emit({kind,description:{type:kind,sdp:localSDP(description.sdp,this.addressHint)}});
+    if(kind==='offer')this.restartOf=restartOf;
+    this.emit({kind,description:{type:kind,sdp:localSDP(description.sdp,this.addressHint)},...(restartOf?{restartOf}:{})});
     this.descriptionSent=true;
     for(const candidate of this.pendingCandidates.splice(0))this.emit(candidate);
   }
@@ -136,29 +174,56 @@ export class DirectLink {
     this.log('signal-received',{kind:m.kind});
     // One side can lose the link before the other notices. A paired phone's
     // restart request must work even while the PC still considers it connected.
-    if(m.kind==='restart'){if(this.role==='host'&&!this.retryTimer)this.offer();return;}
+    if(m.kind==='restart'){
+      // Both peers may notice an interruption together. Do not replace an offer
+      // that is already being gathered or has just been sent to this phone.
+      if(this.role==='host'&&!this.offerInFlight){
+        if(!this.pc||this.up||performance.now()-this.started>=2000)this.offer();
+        else this.repeatOffer();
+      }
+      return;
+    }
     if(typeof m.negotiationId!=='string'||m.negotiationId.length>100)return;
     if(m.kind==='offer'&&this.role==='phone'){
       if(m.description?.type!=='offer')return;
-      // Candidates preceding the offer are not needed: the host sends the SDP before trickle events.
-      const pc=this.create(m.negotiationId);if(!pc)return;
+      if(m.negotiationId===this.negotiationId){
+        // A signaling reconnect can replay an offer whose answer was lost.
+        // Re-send the answer without replacing the live ICE/DTLS transport.
+        if(this.descriptionSent&&this.pc?.signalingState==='stable'&&this.pc.localDescription?.type==='answer')this.describe('answer',this.pc.localDescription);
+        return;
+      }
+      let pc;
+      if(m.restartOf!==undefined){
+        // Restart credentials and proofs belong to a new attempt, but the
+        // existing DTLS/SCTP channels can survive a temporary Wi-Fi loss.
+        if(m.restartOf!==this.negotiationId)return;
+        if(!this.reusableChannels()||this.pc.signalingState!=='stable'){
+          this.unavailable('Reopening the direct Wi-Fi connection…');return;
+        }
+        pc=this.pc;this.beginAttempt(m.negotiationId);this.restartUsed=true;
+        this.state('connecting','Reconnecting directly over your local Wi-Fi…');
+      }else{pc=this.create(m.negotiationId);if(!pc)return;}
+      const current=()=>this.pc===pc&&this.negotiationId===m.negotiationId;
       this.recordDescription(m.description.sdp);
       await pc.setRemoteDescription({type:'offer',sdp:localSDP(m.description.sdp)});
-      if(this.pc!==pc)return;
+      if(!current())return;
       this.log('sdp-remote',{kind:'offer',remoteCount:this.remoteCandidates.length});
-      const answer=await pc.createAnswer();if(this.pc!==pc)return;
-      await pc.setLocalDescription(answer);
-      await this.describeWhenGathered(pc,'answer');
+      const answer=await pc.createAnswer();if(!current())return;
+      this.localIceUfrags=new Set([...answer.sdp.matchAll(/^a=ice-ufrag:(.+)$/gm)].map(match=>match[1].trim()));
+      await pc.setLocalDescription(answer);if(!current())return;
+      await this.describeWhenGathered(pc,'answer',m.negotiationId);
       return;
     }
     const pc=this.pc;if(!pc||m.negotiationId!==this.negotiationId)return;
     if(m.kind==='answer'&&this.role==='host'&&m.description?.type==='answer'&&pc.signalingState==='have-local-offer'){
       this.recordDescription(m.description.sdp);
       await pc.setRemoteDescription({type:'answer',sdp:localSDP(m.description.sdp)});
-      if(this.pc!==pc)return;
+      if(this.pc!==pc||this.negotiationId!==m.negotiationId)return;
       this.log('sdp-remote',{kind:'answer',remoteCount:this.remoteCandidates.length});
-      for(const candidate of this.ice.splice(0)){if(this.pc===pc)await this.addCandidate(pc,candidate);}
+      for(const candidate of this.ice.splice(0)){if(this.pc===pc&&this.negotiationId===m.negotiationId)await this.addCandidate(pc,candidate);}
     }else if(m.kind==='candidate'&&localCandidate(m.candidate)){
+      const key=candidateKey(m.candidate);this.remoteCandidateKeys??=new Set();
+      if(this.remoteCandidateKeys.has(key))return;this.remoteCandidateKeys.add(key);
       this.remoteCandidates.push(candidateInfo(m.candidate));
       if(pc.remoteDescription)await this.addCandidate(pc,m.candidate);
       else if(this.ice.length<128)this.ice.push(m.candidate);
@@ -172,7 +237,13 @@ export class DirectLink {
       if(this.pc===pc)this.error(error,{stage:'add-candidate'});
     }
   }
-  recordDescription(sdp){for(const line of sdp.split(/\r?\n/)){const candidate=candidateInfo(line);if(candidate)this.remoteCandidates.push(candidate);}}
+  recordDescription(sdp){
+    this.remoteCandidateKeys??=new Set();
+    for(const line of sdp.split(/\r?\n/)){
+      const candidate=candidateInfo(line),key=candidateKey(line);
+      if(candidate&&!this.remoteCandidateKeys.has(key)){this.remoteCandidateKeys.add(key);this.remoteCandidates.push(candidate);}
+    }
+  }
   channel(channel){
     const pc=this.pc;
     if(!['motion','control'].includes(channel.label)||this[channel.label]){channel.close();return;}
@@ -183,7 +254,7 @@ export class DirectLink {
     channel.onerror=event=>{
       // A channel can fail while a page is closing; recovery owns this error.
       event.preventDefault();
-      if(this.pc===pc){this.log('channel-error',{channel:channel.label,errorName:event.error?.name});this.unavailable('The direct Wi-Fi connection was interrupted. '+HELP);}
+      if(this.pc===pc){this.log('channel-error',{channel:channel.label,errorName:event.error?.name});this.unavailable('The direct Wi-Fi connection was interrupted. '+HELP,{transient:channel.readyState==='open'});}
     };
     channel.onmessage=e=>{
       if(this.pc!==pc||typeof e.data!=='string'||e.data.length>65536)return;
@@ -210,18 +281,18 @@ export class DirectLink {
   }
   internal(message){if(this.canWrite()&&this.control?.readyState==='open'&&this.control.bufferedAmount<32768){try{this.control.send(JSON.stringify(message));}catch{}}}
   promote(){
-    if(this.verified&&this.peerVerified&&this.control?.readyState==='open'&&this.motion?.readyState==='open'&&!this.up){
+    if(this.verified&&this.peerVerified&&this.control?.readyState==='open'&&this.motion?.readyState==='open'&&this.canWrite()&&!this.up){
       clearTimeout(this.retryTimer);this.retryTimer=null;
-      this.up=true;this.state('connected','Direct local Wi-Fi connected.');
+      this.up=true;this.everConnected=true;this.restartUsed=false;this.retryFailures=0;this.recoveryStarted=null;this.attemptDeadline=0;this.state('connected','Direct local Wi-Fi connected.');
       this.routeIssue=null;this.diagnostic('connected');
     }
   }
   async check(){
-    const pc=this.pc;
+    const pc=this.pc,negotiationId=this.negotiationId;
     if(!pc||this.checking)return;
-    this.checking=true;
+    const operation={pc,negotiationId};this.checking=operation;
     try{
-      const report=await pc.getStats();if(this.pc!==pc)return;
+      const report=await pc.getStats();if(this.pc!==pc||this.negotiationId!==negotiationId)return;
       const now=performance.now();
       if(now-this.lastStats>(this.up?15000:5000)){
         this.lastStats=now;
@@ -239,31 +310,60 @@ export class DirectLink {
       if(route&&!route.allowed){
         if(this.routeIssue!==route.reason)this.log('route-check',{reason:route.reason,accepted:false});
         this.routeIssue=route.reason;this.diagnostic('verifying');
-        if(route.pending){this.up=false;this.verified=false;this.state('verifying','Waiting for the browser to confirm the local connection.');return;}
+        if(route.pending){if(!this.attemptDeadline)this.attemptDeadline=now+DISCOVERY_TIMEOUT;this.up=false;this.verified=false;this.state('verifying','Waiting for the browser to confirm the local connection.');return;}
         this.unavailable('A local Wi-Fi route could not be verified. '+HELP);return;
       }
       if(route?.allowed){if(!this.verified)this.log('route-check',{accepted:true,localType:route.localType,remoteType:route.remoteType});this.route=route;this.verified=true;this.internal({t:'_local-proof',id:this.negotiationId});this.promote();}
-    }catch(error){this.error(error,{stage:'get-stats'});}
-    finally{if(this.pc===pc)this.checking=false;}
+    }catch(error){if(this.pc===pc&&this.negotiationId===negotiationId)this.error(error,{stage:'get-stats'});}
+    finally{if(this.checking===operation)this.checking=null;}
   }
-  unavailable(message){
-    this.up=false;this.verified=false;this.peerVerified=false;this.state('blocked',message);
-    this.diagnostic('blocked');
+  unavailable(message,{transient=false}={}){
+    const now=performance.now();
+    // An established link gets a new recovery window. Its original pairing
+    // timestamp must never make a brief later interruption time out instantly.
+    if(this.recoveryStarted==null){this.recoveryStarted=now;this.attemptDeadline=now+DISCOVERY_TIMEOUT;}
+    this.up=false;this.verified=false;this.peerVerified=false;
+    this.state(transient?'connecting':'blocked',transient?'Reconnecting directly over your local Wi-Fi…':message);
+    this.diagnostic(transient?'reconnecting':'blocked');
     if(!this.peer||this.retryTimer)return;
-    this.retryTimer=setTimeout(()=>{this.retryTimer=null;if(this.role==='host')this.offer();else this.emit({kind:'restart'});},3000);
+    const delay=Math.min(30000,(transient?DISCONNECT_GRACE:1500)*2**Math.min(this.retryFailures,4)+(this.role==='phone'?1000:0));
+    this.retryTimer=setTimeout(()=>{this.retryTimer=null;this.recover();},delay);
   }
-  retry(){this.log('retry');clearTimeout(this.retryTimer);this.retryTimer=null;if(this.role==='host')this.offer();else this.emit({kind:'restart'});}
+  repeatOffer(){
+    if(this.role!=='host'||!this.descriptionSent||this.pc?.signalingState!=='have-local-offer'||this.pc.localDescription?.type!=='offer')return false;
+    this.describe('offer',this.pc.localDescription,this.restartOf);return true;
+  }
+  recover(){
+    const now=performance.now();
+    if(!this.peer||this.up||this.offerInFlight)return;
+    // The socket may have rejoined just after an offer or answer was lost.
+    // Replay the existing offer first; the phone can safely replay its answer.
+    if(now-this.started<10000&&this.repeatOffer())return;
+    if(now-this.lastRecovery<2000)return;
+    this.lastRecovery=now;
+    clearTimeout(this.retryTimer);this.retryTimer=null;
+    this.retryFailures++;
+    if(this.role==='host')this.offer({iceRestart:this.everConnected&&this.reusableChannels()});
+    else{this.attemptDeadline=performance.now()+DISCOVERY_TIMEOUT;this.emit({kind:'restart'});}
+  }
+  retry({force=false}={}){
+    const now=performance.now();if(!force&&now-this.lastRetry<750)return;
+    this.lastRetry=now;this.log('retry');this.retryFailures=0;
+    clearTimeout(this.retryTimer);this.retryTimer=null;
+    if(this.role==='host')this.offer({force:true});
+    else{this.attemptDeadline=now+DISCOVERY_TIMEOUT;this.emit({kind:'restart'});}
+  }
   tick(){
     if(!this.pc)return;
     const now=performance.now();
     // Loading a 3D scene can stall a phone's main thread. Keep the transport alive;
     // the game separately pauses as soon as motion samples are no longer fresh.
-    if(this.up&&now-this.lastHeard>10000){this.unavailable('The direct Wi-Fi connection stopped responding. '+HELP);return;}
+    if(this.up&&now-this.lastHeard>10000){this.unavailable('The direct Wi-Fi connection stopped responding. '+HELP,{transient:true});return;}
     this.internal({t:'_pulse',at:now});
     if(now-this.lastCheck>750){this.lastCheck=now;this.check();}
     // Give browser address discovery and permission prompts time to finish.
     // The presentation layer offers help sooner without aborting this attempt.
-    if(!this.up&&now-this.started>60000&&!this.retryTimer){this.log('timeout',{duration:now-this.started});this.unavailable('The devices cannot reach each other over local Wi-Fi. '+HELP);}
+    if(!this.up&&now>(this.attemptDeadline||(this.started+DISCOVERY_TIMEOUT))&&!this.retryTimer){this.log('timeout',{duration:now-(this.recoveryStarted??this.started)});this.unavailable('The devices cannot reach each other over local Wi-Fi. '+HELP);}
   }
   send(message){
     // Trust the verified route and open channel, not an aggregate state that can

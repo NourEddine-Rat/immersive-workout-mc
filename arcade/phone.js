@@ -20,7 +20,7 @@ const $ = id => document.getElementById(id);
 const state = $('state'), hint = $('hint');
 const app=window.PhoneApp;
 const instanceId=uuid();
-let motionStatus='needed', motionBusy=false,motionRequestedAt=0, closed=false, reconnectTimer, authenticated=false, replaced=false, lastMessage=0;
+let motionStatus='needed', motionBusy=false,motionRequestedAt=0, closed=false, reconnectTimer, authenticated=false, replaced=false, lastMessage=0, signalingExpired=null, hadDirectConnection=false;
 function motionChange(status,text){globalThis.ConnectionDiagnostics?.record('motion-permission',{motion:status});motionStatus=status;if(text)hint.textContent=text;window.dispatchEvent(new CustomEvent('phone-motion',{detail:{status,text:hint.textContent}}));if(authenticated)send({t:'phone-presence',motion:status});}
 window.PhoneMotion={get status(){return motionStatus;},get running(){return running;},enable:()=>startMotion(),stop:()=>{document.getElementById('shield')?.remove();running=false;window.removeEventListener('devicemotion',onMotion);batch=[];lastTs=0;rateEst=0;wakeLock?.release().catch(()=>{});useVideo(false);state.textContent='Not started';$('start').textContent='Start sensing';motionChange('needed','Motion is off. Enable it again when you are ready to play.');},lock:()=>{if(running)shield();}};
 
@@ -36,18 +36,33 @@ const signal=o=>{if(ws?.readyState===1){try{ws.send(JSON.stringify({...o,clientI
 const diagnostic=globalThis.ConnectionDiagnostics;
 diagnostic?.bind('phone',signal);
 const direct=new DirectLink({role:'phone',signal,onMessage:receive,onState:status=>{
+  if(signalingExpired&&!status.direct&&status.status==='blocked'){expirePairing(signalingExpired);return;}
   batch=[];
   window.dispatchEvent(new CustomEvent('phone-link',{detail:{connected:status.direct}}));
   window.dispatchEvent(new CustomEvent('phone-local',{detail:status}));
   set('rLink',status.direct?'direct Wi-Fi':status.status,status.direct?'ok':'warn');
   if(status.direct){
+    hadDirectConnection=true;
     sendProfile();send({t:'phone-presence',motion:motionStatus});send({t:'host-sync'});send({t:'carousel-sync'});
     send({t:'hello',pocket,conv:'webkit',mirrored:MIRROR,screen:[screen.width,screen.height]});
   }
 }});
-window.PhoneConnection={get status(){return direct.snapshot();},retry:()=>{connect();if(ws?.readyState===1){join();direct.retry();}},report:()=>diagnostic?.download()};
+function expirePairing(message){
+  signalingExpired=null;hadDirectConnection=false;authenticated=false;
+  direct.close();app.save('inmotion.pair.v1',null);window.PhoneMotion.stop();
+  window.dispatchEvent(new CustomEvent('phone-host',{detail:message}));
+}
+window.PhoneConnection={get status(){return direct.snapshot();},retry:()=>{
+  // A server restart can expire the code while the verified local link still
+  // works. Do not replace that link with an offer the server cannot forward.
+  if(signalingExpired){if(direct.snapshot().status==='blocked')expirePairing(signalingExpired);return;}
+  connect();if(ws?.readyState===1){if(authenticated&&direct.peer)direct.retry();else join();}
+},report:()=>diagnostic?.download()};
 function setPeer(m){
-  if(m.hostId&&m.peerId)direct.setPeer({hostId:m.hostId,clientId:app.id,peerId:m.peerId});
+  if(!m.hostId||!m.peerId)return false;
+  const same=direct.peer?.hostId===m.hostId&&direct.peer?.peerId===m.peerId;
+  if(!same)hadDirectConnection=false;
+  direct.setPeer({hostId:m.hostId,clientId:app.id,peerId:m.peerId});return same;
 }
 function receive(m){
   if(m.t==='phone-calibration'&&m.userId===app.id&&m.calibration?.v===1){app.save('inmotion.calibration.v1',m.calibration);return;}
@@ -64,12 +79,13 @@ function connect(){
   clearTimeout(reconnectTimer);
   diagnostic?.record('ws-opening');
   const socket=ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws?role=phone`);
+  let recoverOnPair=!!direct.peer;
   socket.onopen=()=>{if(ws!==socket)return;lastMessage=Date.now();diagnostic?.record('ws-open');join();diagnostic?.flush();};
   socket.onclose=e=>{
     if(ws!==socket)return;
     diagnostic?.record('ws-close',{code:e.code,clean:e.wasClean});
     // Existing data channels keep working during a signaling-server outage.
-    if(!direct.up){authenticated=false;direct.state('signaling','Reconnecting to the pairing server…');window.dispatchEvent(new CustomEvent('phone-link',{detail:{connected:false}}));}
+    if(!direct.up){direct.state('signaling','Reconnecting to the pairing server…');window.dispatchEvent(new CustomEvent('phone-link',{detail:{connected:false}}));}
     if(!closed&&!replaced)reconnectTimer=setTimeout(connect,1000);
   };
   socket.onerror=()=>{diagnostic?.record('ws-error');socket.close();};
@@ -78,39 +94,48 @@ function connect(){
     let m;try{m=JSON.parse(e.data);}catch{return;}lastMessage=Date.now();
     if(diagnostic?.receive(m))return;
     if(m.t==='phone-paired'){
-      authenticated=true;
+      authenticated=true;signalingExpired=null;
       window.dispatchEvent(new CustomEvent('phone-host',{detail:m}));
-      setPeer(m);if(direct.up){sendProfile();send({t:'host-sync'});}return;
+      const same=setPeer(m),resume=recoverOnPair;recoverOnPair=false;
+      if(resume&&same&&!direct.up)direct.recover();
+      if(direct.up){sendProfile();send({t:'host-sync'});}return;
     }
     if(m.t==='peer-host'){setPeer(m);return;}
     if(m.t==='rtc-signal'){direct.signal(m);return;}
-    if(m.t==='phone-replaced'){authenticated=false;replaced=true;direct.close();window.PhoneMotion.stop();ws.close();}
-    if(m.t==='pair-expired'){authenticated=false;direct.close();app.save('inmotion.pair.v1',null);window.PhoneMotion.stop();}
-    if(m.t==='host-busy'){authenticated=false;direct.close();}
-    if(['phone-replaced','pair-expired','host-busy'].includes(m.t))window.dispatchEvent(new CustomEvent('phone-host',{detail:m}));
+    if(m.t==='phone-replaced'){signalingExpired=null;hadDirectConnection=false;authenticated=false;replaced=true;direct.close();window.PhoneMotion.stop();ws.close();}
+    if(m.t==='pair-expired'){
+      // Signaling rooms are temporary; authenticated local gameplay does not
+      // depend on their continued existence. Only a hard local failure needs
+      // a new code. Brief ICE disconnections retain their recovery grace.
+      if(authenticated&&direct.peer&&(direct.up||hadDirectConnection&&direct.snapshot().status!=='blocked')){signalingExpired=m;diagnostic?.record('signal-received',{kind:'pair-expired',reason:'local-link-preserved'});return;}
+      expirePairing(m);return;
+    }
+    if(m.t==='host-busy'){signalingExpired=null;hadDirectConnection=false;authenticated=false;direct.close();}
+    if(['phone-replaced','host-busy'].includes(m.t))window.dispatchEvent(new CustomEvent('phone-host',{detail:m}));
   };
 }
 const send=o=>{
   if(!authenticated)return false;
   return direct.send({...o,clientId:app.id,hostId:direct.peer?.hostId});
 };
-const join=()=>{const pair=app.read('inmotion.pair.v1',null);if(app.onboarded&&pair)signal({t:'phone-join',pairCode:pair.code,instanceId});};
+const join=()=>{const pair=app.read('inmotion.pair.v1',null);if(!signalingExpired&&app.onboarded&&pair)signal({t:'phone-join',pairCode:pair.code,instanceId});};
 const sendProfile=()=>send({t:'phone-profile',profile:app.profile});
 window.addEventListener('phone-profile',sendProfile);
-window.addEventListener('phone-paired',()=>{replaced=false;connect();join();});
+window.addEventListener('phone-paired',()=>{replaced=false;signalingExpired=null;connect();join();});
 setInterval(()=>{
   if(ws?.readyState===1){
     signal({t:'heartbeat'});
-    if(Date.now()-lastMessage>12000){diagnostic?.record('ws-timeout');ws.close();return;}
+    if(!document.hidden&&Date.now()-lastMessage>12000){diagnostic?.record('ws-timeout');ws.close();return;}
     if(!authenticated&&!replaced)join();
   }
   if(direct.up)send({t:'phone-presence',motion:motionStatus});
 },1000);
 window.addEventListener('online',()=>{if(ws?.readyState>1)connect();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastMessage=Date.now();if(ws?.readyState===1)signal({t:'heartbeat'});else if(app.onboarded&&app.read('inmotion.pair.v1',null))connect();}});
 window.addEventListener('phone-command',e=>{
   if(!['carousel-move','carousel-pick','carousel-sync','host-sync','host-action','host-home','phone-release','phone-profile'].includes(e.detail?.t))return;
   send(e.detail);
-  if(e.detail.t==='phone-release'){signal({t:'phone-release'});authenticated=false;direct.close();}
+  if(e.detail.t==='phone-release'){signal({t:'phone-release'});signalingExpired=null;hadDirectConnection=false;authenticated=false;direct.close();}
 });
 const now = () => (performance.timeOrigin || Date.now()-performance.now()) + performance.now();
 
@@ -431,4 +456,4 @@ const bars = $('bars'), bctx = bars.getContext('2d');
 // The controller's phone-paired event opens the signaling connection.
 
 addEventListener('pagehide',()=>{closed=true;clearTimeout(reconnectTimer);direct.close();ws?.close();});
-addEventListener('pageshow',e=>{if(e.persisted){closed=false;connect();}});
+addEventListener('pageshow',e=>{if(e.persisted){closed=false;lastMessage=Date.now();if(signalingExpired)expirePairing(signalingExpired);else connect();}});

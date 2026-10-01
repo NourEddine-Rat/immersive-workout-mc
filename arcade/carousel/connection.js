@@ -2,6 +2,7 @@ import {qrcode} from '../engine/lib/qrcode.js';
 import {hostBridge} from '../engine/host-bridge.js';
 import {ConnectionNotice} from '../engine/lib/connection-notice.js';
 import {connectionExplanation} from '../engine/lib/connection-explanation.js';
+import {createMicrophoneRecovery} from '../engine/lib/microphone-recovery.js';
 
 if(new URLSearchParams(location.search).get('controller')!=='1'){
   const trigger=document.getElementById('phone-status'),frame=document.querySelector('.frame');
@@ -26,21 +27,20 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
     <div class="pair-link-row"><a class="pair-address" target="_blank" rel="noopener">Preparing phone link…</a><button class="pair-copy" type="button" disabled>Copy link</button></div>
     <p class="pair-network"></p><details class="pair-trouble" hidden><summary>Phone not opening the link?</summary><p class="pair-warning"></p></details>
     <footer class="pair-state" role="status" aria-live="polite"><span>Preparing your connection…</span><button class="pair-retry" type="button" hidden>Retry</button></footer>
-    <details class="pair-local-help"><summary>Connection help</summary><p>Use the same Wi-Fi on both devices. If automatic discovery fails, enter this PC’s IPv4 address from its Wi-Fi settings.</p><form class="pair-local-form"><label for="pair-local-address">PC Wi-Fi address</label><div><input id="pair-local-address" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="192.168.1.20" aria-describedby="pair-local-feedback"><button type="submit">Connect directly</button></div><p id="pair-local-feedback" role="status"></p><button class="pair-local-reset" type="button" hidden>Use automatic discovery</button></form></details>`;
+    <details class="pair-local-help"><summary>Connection help</summary><section class="pair-audio-help" aria-labelledby="pair-audio-title"><h3 id="pair-audio-title">Help your phone find this PC</h3><p>Microphone permission can help your browser connect locally. Your microphone opens briefly and stops immediately. No audio is recorded or sent.</p><button class="pair-audio-allow" type="button" aria-describedby="pair-audio-status">Allow microphone &amp; retry</button><p id="pair-audio-status" role="status" aria-live="polite"></p></section><p>Keep both screens open on the same Wi-Fi. Avoid guest Wi-Fi or a VPN. This option cannot connect devices that your network keeps separate.</p></details>`;
   document.body.append(dialog);
   globalThis.ConnectionDiagnostics?.mount(dialog.querySelector('.pair-local-help'));
-  const diagnosticStage=document.createElement('p');diagnosticStage.setAttribute('aria-live','polite');dialog.querySelector('.pair-local-help').append(diagnosticStage);
   const $=selector=>dialog.querySelector(selector);
-  $('#pair-local-address').value=hostBridge.localAddress;
-  $('.pair-local-reset').hidden=!hostBridge.localAddress;
-  $('.pair-local-form').onsubmit=e=>{
-    e.preventDefault();
-    try{hostBridge.setLocalAddress($('#pair-local-address').value);$('#pair-local-feedback').textContent='Trying this Wi-Fi address. Keep your phone’s Play screen open.';$('.pair-local-reset').hidden=!hostBridge.localAddress;}
-    catch(error){$('#pair-local-feedback').textContent=error.message;}
-  };
-  $('.pair-local-reset').onclick=()=>{hostBridge.setLocalAddress('');$('#pair-local-address').value='';$('#pair-local-feedback').textContent='Automatic discovery restored.';$('.pair-local-reset').hidden=true;};
-  let info=null,loading=false,issue='',inspecting=false,unlocked=false;
+  let info=null,loading=false,issue='',inspecting=false,unlocked=false,offeredAudio=false;
   const notice=new ConnectionNotice();
+  const microphone=createMicrophoneRecovery({onChange:()=>render(),onRetry:()=>{
+    const state=hostBridge.connection;
+    if(!state.active||!state.paired||state.direct)return;
+    // Replace any address saved by the old diagnostic workaround. The browser
+    // must discover the address itself after consent; no camera/audio is sent.
+    hostBridge.setLocalAddress('');
+  }});
+  $('.pair-audio-allow').onclick=()=>microphone.request();
   const presented=()=>window.galleryIntro?.presented===true;
   const failed=()=>window.galleryIntro?.failed===true;
   const connected=()=>hostBridge.connection.active&&hostBridge.connection.direct;
@@ -85,15 +85,26 @@ if(new URLSearchParams(location.search).get('controller')!=='1'){
   function render(){
     const state=hostBridge.connection,ready=connected();
     const status=notice.update({connected:ready,pending:state.paired||!!issue||!!state.error,failed:!!issue||!!state.error});
+    const audio=microphone.snapshot;
+    if(audio.pending&&(ready||!state.active||!state.paired))microphone.cancel();
+    const audioButton=$('.pair-audio-allow');
+    audioButton.disabled=ready||!state.active||!state.paired||audio.pending||!audio.available||audio.granted;
+    audioButton.textContent=ready?'Phone connected':audio.granted?'Microphone access stopped':audio.state==='idle'?'Allow microphone & retry':audio.buttonLabel;
+    const audioMessage=ready?'Connected. No microphone is needed for gameplay.':!state.paired?'Scan the QR code first. If connecting stalls, try this option.':audio.state==='idle'?'Optional. Your browser will ask you to allow microphone access.':audio.message;
+    if($('#pair-audio-status').textContent!==audioMessage)$('#pair-audio-status').textContent=audioMessage;
+    if(!ready&&state.active&&state.paired&&state.stage==='local-discovery'&&status.retry&&!offeredAudio){
+      offeredAudio=true;$('.pair-local-help').open=true;
+    }
     $('.pair-close').hidden=!ready;
     $('.pair-retry').hidden=!status.retry||ready;
     dialog.dataset.state=ready?'ready':'waiting';
-    const message=ready?'Phone connected over local Wi-Fi.':state.online&&!state.active?'Close your other game tab to continue here.':status.state==='reconnecting'?'Phone disconnected. Open Play on your phone.':!info&&issue?'Couldn’t prepare the QR code. Please retry.':status.state==='help'?connectionExplanation(state):status.state==='connecting'?'Connecting to your phone…':'Waiting for your phone';
-    const detail=connectionExplanation(state);if(diagnosticStage.textContent!==detail)diagnosticStage.textContent=detail;
+    const help=audio.granted&&state.stage==='local-discovery'?'Microphone permission is allowed. If connecting still stalls, check both devices are on the same Wi-Fi and choose Retry.':connectionExplanation(state);
+    const message=ready?'Phone connected over local Wi-Fi.':state.online&&!state.active?'Close your other game tab to continue here.':status.state==='reconnecting'?'Phone disconnected. Open Play on your phone.':!info&&issue?'Couldn’t prepare the QR code. Please retry.':status.state==='help'?help:status.state==='connecting'?'Connecting to your phone…':'Waiting for your phone';
     const label=$('.pair-state span');if(label.textContent!==message)label.textContent=message;
     // Pairing may finish in the background, but never interrupt the gallery entrance.
     if(!presented()||failed())return;
     if(ready){
+      offeredAudio=false;
       if(!inspecting)unlock();
     }else{
       inspecting=false;unlocked=false;

@@ -189,7 +189,7 @@ test('phone loading failures offer retry; connected carousel stays available wit
   }finally{await browser.close();s.close();}
 });
 
-test('server restart refreshes the PC code and the phone can pair again with its saved identity',{timeout:90000},async()=>{
+test('server restart preserves play until PC reload, then the phone can pair with its saved identity',{timeout:90000},async()=>{
   let s=await server();const browser=await launch();
   try{
     const pc=await browser.newPage({viewport:{width:1000,height:700}}),phone=await phonePage(browser);
@@ -201,6 +201,12 @@ test('server restart refreshes the PC code and the phone can pair again with its
     await phone.locator('#motionEnable').click();await motions(phone);
     await pc.waitForFunction(()=>!document.querySelector('.pair-dialog').open);
     const port=s.port;await s.close();s=await server(port);
+    await phone.waitForFunction(()=>ConnectionDiagnostics.events.some(e=>e.event==='signal-received'&&e.data.reason==='local-link-preserved'),{},{timeout:20000});
+    assert.equal(await phone.evaluate(()=>PhoneConnection.status.direct),true);
+    assert.equal(await pc.locator('.pair-dialog').evaluate(el=>el.open),false);
+    // Reload replaces the PC document/transport, so the expired room now needs
+    // its new QR. The user's saved profile and identity must survive pairing.
+    await pc.reload({waitUntil:'domcontentloaded'});
     await pc.waitForFunction(old=>document.querySelector('.pair-dialog').open&&/^\d{6}$/.test(document.querySelector('.pair-code').textContent)&&document.querySelector('.pair-code').textContent!==old,old,{timeout:25000});
     await phone.waitForFunction(()=>document.getElementById('controlStatus')?.textContent==='NOT CONNECTED');
     const code=await pc.locator('.pair-code').textContent();

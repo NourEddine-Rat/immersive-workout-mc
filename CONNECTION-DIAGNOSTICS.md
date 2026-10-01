@@ -16,6 +16,7 @@ The loader also offers a report when phone startup fails. If the diagnostics scr
 - Browser family/version, OS family, secure context, online/offline, visibility, page suspension/restoration, resource errors, uncaught errors and rejected promises.
 - Pair lookup result, WebSocket open/error/close code, heartbeat timeout, registration, accepted/expired/busy pairing, and offer/answer/restart forwarding.
 - Each negotiation attempt, gathering/ICE/DTLS/SCTP state, candidate acceptance/rejection and address family, offer/answer processing, candidate-add errors, data-channel open/error/close, local verification and peer proof.
+- Explicit microphone recovery requests, grants, cancellation and sanitized failure reasons. No audio, device labels or microphone contents are captured. `microphone-granted` is recorded only after all returned tracks have stopped.
 - Every five seconds while connecting and fifteen seconds while connected: candidate counts, candidate-pair progress, STUN check request/response counts, transport byte counts, round-trip time and last-received age. These are transport counters, not motion samples.
 - Server receipt time, client time and elapsed time, page trace ID, socket ID, connection ID and server boot ID. Compare attempt numbers within one page trace. Client clocks can differ; use server receipt times for cross-device order.
 
@@ -38,16 +39,16 @@ New entries start with `connection_trace`; filter the JSON `session` field using
 | No `ws-open`, HTTP lookup error | Internet, cookies, origin, page loading, server availability. |
 | `waiting-offer` / `waiting-answer` | Pairing succeeded but the other device has not processed the SDP. Check its visibility, errors and server forwarding records. |
 | No accepted local candidates | Browser/OS permissions, disabled WebRTC, or no supported local interface. |
-| Both descriptions set, zero successful candidate pairs | LAN discovery/reachability. Check Local Network permissions on both devices, mDNS, guest/client isolation, UDP firewall and VPN. |
+| Both descriptions set, zero successful candidate pairs | LAN discovery/reachability. Try the PC microphone fallback, then check mDNS, guest/client isolation, UDP firewall, VPN and applicable PC browser/OS permissions. An absent iPhone Local Network prompt is not proof of denial. |
 | Requests sent, no responses | Candidate checks are not getting a usable response; logs alone cannot distinguish every firewall/mDNS/router cause. |
 | ICE connected, `route-verification` | The route is working but selected-address evidence is hidden or forbidden. Inspect route reason and each browser's detailed ICE snapshot. |
 | `peer-verification` | One peer verified its route; the other has not confirmed. Inspect the other report. |
 | Both channels open, no motion | Transport is ready; check sensor permission, samples, visibility and phone lock separately. |
 
-If mDNS discovery is blocked, the PC Connection help accepts its private Wi-Fi IPv4 address, obtained from that PC's network settings. It supplements discovery while preserving the original candidates, private-route checks and encrypted WebRTC. A public/Heroku IP is never a substitute. The hint cannot fix client isolation, a denied local-network permission, or blocked UDP.
+If mDNS discovery is blocked, the PC Connection help offers **Allow microphone & retry**. The browser may expose numeric host addresses after explicit microphone consent; all microphone tracks stop before the fresh negotiation. Check `microphone-granted`, a new `rtc-create` with `hint:false`, candidate `addressType:ipv4`, route verification and channel opening. A grant alone is not a successful connection. The production UI no longer requests manual IP entry.
 
 ## Transport choice
 
 WebRTC data channels already use the browser's established ICE, DTLS and SCTP implementations. PeerJS or simple-peer wraps negotiation but does not fix iOS network permission, multicast discovery or Wi-Fi isolation. Their public STUN/TURN defaults must not be adopted for this local-only product. Socket.IO to Heroku would send motion through the cloud. A native/local companion service could avoid browser discovery limitations but would require software installation and a separate product flow.
 
-This update retains WebRTC, isolates individual candidate failures, guards stale asynchronous SDP work, restarts unfinished signaling negotiations after reconnect, and makes failures observable. It keeps `iceServers: []`, independent route verification, unreliable motion packets and no cloud gameplay fallback.
+This update retains WebRTC, isolates individual candidate failures, guards stale asynchronous SDP work, uses a grace period and native ICE restart before replacing viable channels, and replays unfinished signaling descriptions after reconnect. It keeps `iceServers: []`, independent route verification, unreliable motion packets and no cloud gameplay fallback.

@@ -271,7 +271,7 @@ def rtc_message(message):
         data = message.get("diagnostic")
         if not isinstance(data, dict):
             return None
-        phases = {"gathered", "verifying", "connected", "blocked"}
+        phases = {"gathered", "verifying", "connected", "reconnecting", "blocked"}
         states = {"new", "checking", "connecting", "connected", "completed", "disconnected", "failed", "closed"}
         reasons = {""} | {side + reason for side in ("local-", "remote-") for reason in
                          ("candidate-pending", "candidate-hidden", "vpn-route", "nonlocal-type", "non-udp-route", "nonlocal-address")}
@@ -289,6 +289,11 @@ def rtc_message(message):
         if not isinstance(sdp, str) or not sdp.startswith("v=0") or len(sdp) > 65536:
             return None
         result["description"] = {"type": kind, "sdp": sdp}
+        if kind == "offer" and "restartOf" in message:
+            previous = message["restartOf"]
+            if not isinstance(previous, str) or not 1 <= len(previous) <= 100 or previous == negotiation:
+                return None
+            result["restartOf"] = previous
     elif kind == "candidate":
         candidate = message.get("candidate")
         if not isinstance(candidate, dict) or not isinstance(candidate.get("candidate"), str) or len(candidate["candidate"]) > 2048:

@@ -160,10 +160,11 @@ test('a private PC address recovers blocked mDNS discovery in WebKit and survive
   await phone.goto(s.base+'/phone.html?connect='+await pc.locator('.pair-code').textContent(),{waitUntil:'domcontentloaded'});
   await pc.waitForFunction(()=>testPCs.at(-1)?.remoteDescription);await sleep(1000);
   assert.equal(await phone.evaluate(()=>PhoneConnection.status.direct),false);
-  await pc.locator('.pair-local-help summary').click();await pc.locator('#pair-local-address').fill('8.8.8.8');
-  await pc.locator('.pair-local-form button[type=submit]').click();
-  assert.match(await pc.locator('#pair-local-feedback').textContent(),/private Wi-Fi IPv4/);
-  await pc.locator('#pair-local-address').fill(address);await pc.locator('.pair-local-form button[type=submit]').click();
+  // Address hints remain an internal diagnostic tool, not a user-facing step.
+  await pc.evaluate(async address=>{
+    const {hostBridge}=await import('/engine/host-bridge.js');
+    hostBridge.setLocalAddress(address);
+  },address);
   try{await phone.waitForFunction(()=>PhoneConnection.status.direct,{},{timeout:20000});}
   catch(error){
    for(const page of [pc,phone])console.error(page===pc?'PC route:':'Phone route:',await page.evaluate(async()=>{

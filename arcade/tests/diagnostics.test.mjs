@@ -12,6 +12,8 @@ assert 'rows' not in clean
 assert not d.client_events([row]*25)
 assert not d.client_events([{**row,'event':'samples'}])
 assert not d.client_events([{**row,'seq':True}])
+for event in ('microphone-request','microphone-granted','microphone-failed','microphone-cancelled'):
+ assert d.client_events([{**row,'event':event}])[0]['event']==event
 for i in range(6200): d.record('test',session='a',data={'rows':[[1,2,3]]})
 assert len(d.EVENTS)==6000
 assert len(d.report('a')['events'])==1000

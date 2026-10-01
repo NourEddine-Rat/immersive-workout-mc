@@ -2,6 +2,23 @@
 
 The connection now uses encrypted WebRTC data channels directly between the phone and PC. The hosted server provides files, pairing and signaling. It does not relay motion, controls, profiles, calibration or game history. No STUN/TURN service or WebSocket gameplay fallback is configured. Play requires a verified local route and fresh motion.
 
+## Microphone fallback and connection recovery
+
+Current local validation: **65 unit/signaling/hosting checks, 22 browser integration scenarios, and one additional Chrome/WebKit scenario passed.** The complete browser run passed 21 scenarios and exposed an older server-restart expectation; after updating that scenario for intentional connection preservation, its focused rerun passed. No application change was needed for that test correction.
+
+The added checks cover:
+
+- An explicit PC microphone action restores a real Chrome-to-WebKit UDP connection with mDNS candidates deliberately unavailable and no manual IP hint. Every simulated microphone track ends before retry; peer connections have no media senders or audio/video SDP sections.
+- No microphone request occurs automatically, on the phone, during ordinary reconnect, or during navigation through training and game pages. Denial remains actionable. Late permission cannot replace a connection that already recovered.
+- A transient interruption triggers native ICE restart while retaining both existing peer connections and data channels, followed by verified local traffic and synthetic motion.
+- An actual Python signaling process restart clears server rooms but preserves ongoing local motion. A later hard failure or PC reload requires a fresh QR and retains the phone's identity.
+- Repeated phone Retry sends one restart without duplicate pairing joins. Stale credentials, candidates, descriptions, statistics and proofs do not validate replacement attempts.
+- Public/relay routes remain blocked; ICE server configuration remains empty; the server refuses gameplay payloads.
+
+Desktop and narrow fallback screenshots were inspected. These tests use simulated microphone hardware and synthetic motion on one Mac. Real iPhone Safari/Chrome, microphone permission behavior, router conditions and Android still require device validation by the user. The live website was not opened or interacted with during this change.
+
+The records below describe earlier beta verification and retain their original counts.
+
 ## Competition filename cleanup
 
 Standardized 89 asset/module paths and moved 13 older root-level prototype files into `archive/prototype/`. Model buffers, textures, imports, icons, styles and generated carousel background paths were updated together. Public game routes and saved game identifiers remain stable. Third-party library filenames and attribution files are preserved.
@@ -40,8 +57,8 @@ Same-machine browser runs observed median sample age between approximately 0 and
 
 ## Still to verify on real hardware and hosting
 
-1. Deploy the repository root to a live Heroku app with exactly one web dyno, then scan its real HTTPS QR. Hosting behavior was tested locally in Heroku mode; no remote app has been deployed from this task.
-2. Test an actual iPhone in Safari and Android phone in Chrome. Allow Motion and Local Network access if requested; calibrate and play each game with the phone in the intended pocket position.
+1. Keep the deployed Heroku app on exactly one web dyno. After a release, reload both devices and scan its fresh HTTPS QR to validate actual hardware behavior.
+2. Test an actual iPhone in Safari and Android phone in Chrome. Allow Motion; if local pairing stalls, test the explicit PC microphone fallback. Calibrate and play each game with the phone in the intended pocket position. An absent native Local Network prompt is not proof of denial.
 3. Test phone lock/unlock, background/return, denied permissions and Wi-Fi changes. Mobile OS power policies and actual motion detection cannot be validated by synthetic desktop events.
 4. Try two independent player pairs and the expected number of simultaneous beta users on the chosen dyno. Room isolation is tested; capacity has not been load-tested.
 5. Confirm guest Wi-Fi/device isolation produces the blocked/retry instructions. Use a normal shared LAN with VPNs disabled. Browsers cannot inspect SSIDs or prove the underlying physical path of an undisclosed VPN; see [DIRECT-CONNECTION.md](DIRECT-CONNECTION.md).
